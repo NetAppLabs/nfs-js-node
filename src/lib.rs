@@ -5,18 +5,52 @@ use napi_derive::napi;
 
 /*
 
+See https://wicg.github.io/file-system-access/
+And https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API
+and https://web.dev/file-system-access/
+
+
+// Example use:
+const nfs_url = "nfs://1.2.3.4/export?vers=3";
+const rootHandle = new NFSDirectoryHandle(nfs_url);
+
+for await (const [name, entry] of rootHandle) {
+  console.log("FileName: ", name, "Entry: ", entry);
+}
+
+const fileHandle = await rootHandle.getFileHandle("testfile.txt", { create: true });
+const wfs = await fileHandle.createWritable({ keepExistingData: false });
+await wfs.write("Hello from Javascript");
+await wfs.close();
+
+// Interface definition
+
+type FileSystemHandleKind = "directory" | "file";
+
 interface FileSystemHandle {
     readonly kind: FileSystemHandleKind;
     readonly name: string;
     isSameEntry(other: FileSystemHandle): Promise<boolean>;
 }
 
+interface FileSystemGetDirectoryOptions {
+    create?: boolean;
+}
+
+interface FileSystemGetFileOptions {
+    create?: boolean;
+}
+
 interface FileSystemDirectoryHandle extends FileSystemHandle {
-    readonly kind: "directory";
+    readonly kind: 'directory';
     getDirectoryHandle(name: string, options?: FileSystemGetDirectoryOptions): Promise<FileSystemDirectoryHandle>;
     getFileHandle(name: string, options?: FileSystemGetFileOptions): Promise<FileSystemFileHandle>;
     removeEntry(name: string, options?: FileSystemRemoveOptions): Promise<void>;
     resolve(possibleDescendant: FileSystemHandle): Promise<string[] | null>;
+    keys(): AsyncIterableIterator<string>;
+    values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
+    entries(): AsyncIterableIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>;
+    [Symbol.asyncIterator]: FileSystemDirectoryHandle['entries'];
 }
 
 interface FileSystemFileHandle extends FileSystemHandle {
