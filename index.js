@@ -218,6 +218,26 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { NFSDirectoryHandle } = nativeBinding
+const {
+  JsNfsHandleKind,
+  JsNfsHandlePermissionMode,
+  JsNfsPermissionDescriptor,
+  JsNfsGetDirectoryOptions,
+  JsNfsGetFileOptions,
+  JsNfsHandle,
+  JsNfsDirectoryHandle,
+  JsNfsFileHandle,
+  JsNfsFile,
+  JsNfsBlob,
+} = nativeBinding
 
-module.exports.NFSDirectoryHandle = NFSDirectoryHandle
+module.exports.JsNfsHandleKind = JsNfsHandleKind
+module.exports.JsNfsHandlePermissionMode = JsNfsHandlePermissionMode
+module.exports.JsNfsPermissionDescriptor = JsNfsPermissionDescriptor
+module.exports.JsNfsGetDirectoryOptions = JsNfsGetDirectoryOptions
+module.exports.JsNfsGetFileOptions = JsNfsGetFileOptions
+module.exports.JsNfsHandle = JsNfsHandle
+module.exports.JsNfsDirectoryHandle = JsNfsDirectoryHandle
+module.exports.JsNfsFileHandle = JsNfsFileHandle
+module.exports.JsNfsFile = JsNfsFile
+module.exports.JsNfsBlob = JsNfsBlob
