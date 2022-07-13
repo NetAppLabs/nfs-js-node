@@ -219,11 +219,15 @@ if (!nativeBinding) {
 }
 
 const {
-  JsNfsHandleKind,
-  JsNfsHandlePermissionMode,
-  JsNfsPermissionDescriptor,
+  ArrayBuffer,
+  AsyncIterableIterator,
+  ReadableStream,
+  JsNfsWritableFileStream,
+  JsNfsHandlePermissionDescriptor,
   JsNfsGetDirectoryOptions,
   JsNfsGetFileOptions,
+  JsNfsRemoveOptions,
+  JsNfsCreateWritableOptions,
   JsNfsHandle,
   JsNfsDirectoryHandle,
   JsNfsFileHandle,
@@ -231,11 +235,15 @@ const {
   JsNfsBlob,
 } = nativeBinding
 
-module.exports.JsNfsHandleKind = JsNfsHandleKind
-module.exports.JsNfsHandlePermissionMode = JsNfsHandlePermissionMode
-module.exports.JsNfsPermissionDescriptor = JsNfsPermissionDescriptor
+module.exports.ArrayBuffer = ArrayBuffer
+module.exports.AsyncIterableIterator = AsyncIterableIterator
+module.exports.ReadableStream = ReadableStream
+module.exports.JsNfsWritableFileStream = JsNfsWritableFileStream
+module.exports.JsNfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor
 module.exports.JsNfsGetDirectoryOptions = JsNfsGetDirectoryOptions
 module.exports.JsNfsGetFileOptions = JsNfsGetFileOptions
+module.exports.JsNfsRemoveOptions = JsNfsRemoveOptions
+module.exports.JsNfsCreateWritableOptions = JsNfsCreateWritableOptions
 module.exports.JsNfsHandle = JsNfsHandle
 module.exports.JsNfsDirectoryHandle = JsNfsDirectoryHandle
 module.exports.JsNfsFileHandle = JsNfsFileHandle

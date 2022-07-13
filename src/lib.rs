@@ -1,7 +1,5 @@
 #![deny(clippy::all)]
 
-use std::collections::HashMap;
-
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
@@ -27,7 +25,12 @@ await wfs.close();
 
 // Interface definition
 
+type FileSystemHandlePermissionMode = "read" | "readwrite";
 type FileSystemHandleKind = "directory" | "file";
+
+interface FileSystemHandlePermissionDescriptor {
+    mode: FileSystemHandlePermissionMode;
+}
 
 interface FileSystemHandle {
     readonly kind: FileSystemHandleKind;
@@ -45,6 +48,10 @@ interface FileSystemGetFileOptions {
     create?: boolean;
 }
 
+interface FileSystemRemoveOptions {
+    recursive?: boolean;
+}
+
 interface FileSystemDirectoryHandle extends FileSystemHandle {
     readonly kind: 'directory';
     getDirectoryHandle(name: string, options?: FileSystemGetDirectoryOptions): Promise<FileSystemDirectoryHandle>;
@@ -57,9 +64,14 @@ interface FileSystemDirectoryHandle extends FileSystemHandle {
     [Symbol.asyncIterator]: FileSystemDirectoryHandle['entries'];
 }
 
+interface FileSystemCreateWritableOptions {
+    keepExistingData?: boolean;
+}
+
 interface FileSystemFileHandle extends FileSystemHandle {
     readonly kind: "file";
     getFile(): Promise<File>;
+    createWritable(options?: FileSystemCreateWritableOptions): Promise<FileSystemWritableFileStream>;
 }
 
 interface File extends Blob {
@@ -79,59 +91,108 @@ interface Blob {
 
 */
 
-#[napi]
-#[derive(PartialEq)]
-pub enum JsNfsHandleKind {
-  file,
-  directory
-}
+const KIND_FILE: &str = "file";
+const KIND_DIRECTORY: &str = "directory";
+
+const PERM_READ: &str = "read";
+const PERM_READWRITE: &str = "readwrite";
 
 #[napi]
-#[derive(PartialEq)]
-pub enum JsNfsHandlePermissionMode {
-  read,
-  readwrite
-}
+struct ArrayBuffer {}
 
-pub struct NFSPermissionDescriptor {
-  mode: JsNfsHandlePermissionMode
-}
+#[napi]
+struct AsyncIterableIterator {}
 
-impl NFSPermissionDescriptor {
+#[napi]
+impl AsyncIterableIterator {
 
-  pub fn with_initial_mode(mode: JsNfsHandlePermissionMode) -> Self {
-    NFSPermissionDescriptor{mode}
+  pub fn new() -> Self {
+    AsyncIterableIterator{}
+  }
+
+  #[napi]
+  pub async fn next(&self) -> napi::Result<Undefined> {
+    Ok(())
   }
 }
 
 #[napi]
-struct JsNfsPermissionDescriptor {
-  inner: NFSPermissionDescriptor,
-  pub mode: JsNfsHandlePermissionMode
+struct ReadableStream {
+  pub locked: bool
+}
+
+struct NFSWritableFileStream {
+  locked: bool
+}
+
+impl NFSWritableFileStream {
+
+  pub fn new() -> Self {
+    Self::with_initial_locked(false)
+  }
+
+  pub fn with_initial_locked(locked: bool) -> Self {
+    NFSWritableFileStream{locked}
+  }
+
+  pub async fn write(&self, data: Undefined) -> napi::Result<Undefined> {
+    Ok(())
+  }
+
+  pub async fn close(&self) -> napi::Result<Undefined> {
+    Ok(())
+  }
 }
 
 #[napi]
-impl JsNfsPermissionDescriptor {
+struct JsNfsWritableFileStream {
+  inner: NFSWritableFileStream,
+  pub locked: bool
+}
 
-  #[napi(factory)]
-  pub fn with_initial_mode(mode: JsNfsHandlePermissionMode) -> Self {
-    JsNfsPermissionDescriptor{inner: NFSPermissionDescriptor::with_initial_mode(mode), mode}
+#[napi]
+impl JsNfsWritableFileStream {
+
+  pub fn with_initial_locked(locked: bool) -> Self {
+    JsNfsWritableFileStream{inner: NFSWritableFileStream::with_initial_locked(locked), locked}
+  }
+
+  pub fn new() -> Self {
+    Self::with_initial_locked(false)
+  }
+
+  #[napi]
+  pub async fn write(&self, data: Undefined) -> napi::Result<Undefined> {
+    let res = self.inner.write(data).await?;
+    Ok(res)
+  }
+
+  #[napi]
+  pub async fn close(&self) -> napi::Result<Undefined> {
+    let res = self.inner.close().await?;
+    Ok(res)
+  }
+}
+
+struct NFSHandlePermissionDescriptor {
+  mode: String
+}
+
+#[napi]
+struct JsNfsHandlePermissionDescriptor {
+  inner: NFSHandlePermissionDescriptor,
+  pub mode: String
+}
+
+impl FromNapiValue for JsNfsHandlePermissionDescriptor {
+
+  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
+    todo!()
   }
 }
 
 struct NFSGetDirectoryOptions {
   create: Option<bool>
-}
-
-impl NFSGetDirectoryOptions {
-
-  pub fn new() -> Self {
-    NFSGetDirectoryOptions{create: None}
-  }
-
-  pub fn with_initial_create(create: bool) -> Self {
-    NFSGetDirectoryOptions{create: Some(create)}
-  }
 }
 
 #[napi]
@@ -140,33 +201,15 @@ struct JsNfsGetDirectoryOptions {
   pub create: Option<bool>
 }
 
-#[napi]
-impl JsNfsGetDirectoryOptions {
+impl FromNapiValue for JsNfsGetDirectoryOptions {
 
-  #[napi(factory)]
-  pub fn with_initial_create(create: bool) -> Self {
-    JsNfsGetDirectoryOptions{inner: NFSGetDirectoryOptions::with_initial_create(create), create: Some(create)}
-  }
-
-  #[napi(constructor)]
-  pub fn new() -> Self {
-    JsNfsGetDirectoryOptions{inner: NFSGetDirectoryOptions::new(), create: None}
+  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
+    todo!()
   }
 }
 
 struct NFSGetFileOptions {
   create: Option<bool>
-}
-
-impl NFSGetFileOptions {
-
-  pub fn new() -> Self {
-    NFSGetFileOptions{create: None}
-  }
-
-  pub fn with_initial_create(create: bool) -> Self {
-    NFSGetFileOptions{create: Some(create)}
-  }
 }
 
 #[napi]
@@ -175,32 +218,59 @@ struct JsNfsGetFileOptions {
   pub create: Option<bool>
 }
 
-#[napi]
-impl JsNfsGetFileOptions {
+impl FromNapiValue for JsNfsGetFileOptions {
 
-  #[napi(factory)]
-  pub fn with_initial_create(create: bool) -> Self {
-    JsNfsGetFileOptions{inner: NFSGetFileOptions::with_initial_create(create), create: Some(create)}
+  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
+    todo!()
   }
+}
 
-  #[napi(constructor)]
-  pub fn new() -> Self {
-    JsNfsGetFileOptions{inner: NFSGetFileOptions::new(), create: None}
+struct NFSRemoveOptions {
+  recursive: Option<bool>
+}
+
+#[napi]
+struct JsNfsRemoveOptions {
+  inner: NFSRemoveOptions,
+  pub recursive: Option<bool>
+}
+
+impl FromNapiValue for JsNfsRemoveOptions {
+
+  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
+    todo!()
+  }
+}
+
+struct NFSCreateWritableOptions {
+  keep_existing_data: Option<bool>
+}
+
+#[napi]
+struct JsNfsCreateWritableOptions {
+  inner: NFSCreateWritableOptions,
+  pub keep_existing_data: Option<bool>
+}
+
+impl FromNapiValue for JsNfsCreateWritableOptions {
+
+  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
+    todo!()
   }
 }
 
 struct NFSHandle {
-  kind: JsNfsHandleKind,
+  kind: String,
   name: String
 }
 
 impl NFSHandle {
 
-  pub fn new(kind: JsNfsHandleKind) -> Self {
+  pub fn new(kind: String) -> Self {
     Self::with_initial_values(kind, String::new())
   }
 
-  pub fn with_initial_values(kind: JsNfsHandleKind, name: String) -> Self {
+  pub fn with_initial_values(kind: String, name: String) -> Self {
     NFSHandle{kind, name}
   }
 
@@ -210,12 +280,12 @@ impl NFSHandle {
     Ok(res)
   }
 
-  pub async fn query_permission(&self, perm: NFSPermissionDescriptor) -> napi::Result<String> {
+  pub async fn query_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
     let res = String::new();
     Ok(res)
   }
 
-  pub async fn request_permission(&self, perm: NFSPermissionDescriptor) -> napi::Result<String> {
+  pub async fn request_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
     let res = String::new();
     Ok(res)
   }
@@ -224,78 +294,88 @@ impl NFSHandle {
 #[napi]
 struct JsNfsHandle {
   inner: NFSHandle,
-  pub kind: JsNfsHandleKind,
+  pub kind: String,
   pub name: String
 }
 
 #[napi]
 impl JsNfsHandle {
 
-  #[napi(factory)]
-  pub fn with_initial_values(kind: JsNfsHandleKind, name: String) -> Self {
-    JsNfsHandle{inner: NFSHandle::with_initial_values(kind, name.clone()), kind, name}
-  }
-
-  #[napi(constructor)]
-  pub fn new() -> Self {
-    JsNfsHandle{inner: NFSHandle::new(JsNfsHandleKind::file), kind: JsNfsHandleKind::file, name: String::new()}
-  }
-
   /// Class method
   #[napi]
-  pub fn is_same_entry(&self, other: ClassInstance<JsNfsHandle>) -> napi::Result<bool> {
-    let res = self.kind == JsNfsHandleKind::directory;
-    // TODO
-    // self.inner.is_same_entry(other.inner)
+  pub fn is_same_entry(&self, other: JsNfsHandle) -> napi::Result<bool> {
+    self.inner.is_same_entry(other.inner)
+  }
+
+  #[napi]
+  pub async fn query_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = self.inner.query_permission(perm.inner).await?;
     Ok(res)
   }
 
-  // TODO
-  // #[napi]
-  // pub async fn query_permission(&self, perm: JsObject) -> napi::Result<JsString> {
-  //   // let p: &mut JsNfsPermissionDescriptor = FromNapiValue::from_unknown(perm.into_unknown())?;
-  //   // let res = self.inner.query_permission(p.inner).await?;
-  //   let res = JsString::from_unknown(perm.into_unknown())?;
-  //   Ok(res)
-  // }
+  #[napi]
+  pub async fn request_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = self.inner.request_permission(perm.inner).await?;
+    Ok(res)
+  }
+}
 
-  // TODO
-  // #[napi]
-  // pub async fn request_permission(&self, perm: ClassInstance<JsNfsPermissionDescriptor>) -> napi::Result<String> {
-  //   let res = self.inner.request_permission(perm.inner).await?;
-  //   Ok(res)
-  // }
+impl FromNapiValue for JsNfsHandle {
+
+  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
+    todo!()
+  }
 }
 
 struct NFSDirectoryHandle {
   handle: NFSHandle,
-  kind: JsNfsHandleKind,
+  kind: String,
   name: String
 }
 
 impl NFSDirectoryHandle {
 
   pub fn new() -> Self {
-    NFSDirectoryHandle{handle: NFSHandle::new(JsNfsHandleKind::directory), kind: JsNfsHandleKind::directory, name: String::new()}
+    Self::with_initial_name(String::new())
+  }
+
+  pub fn open(url: String) -> Self {
+    // TODO: use url param
+    Self::with_initial_name(String::new())
   }
 
   pub fn with_initial_name(name: String) -> Self {
-    NFSDirectoryHandle{handle: NFSHandle::with_initial_values(JsNfsHandleKind::directory, name.clone()), kind: JsNfsHandleKind::directory, name}
+    NFSDirectoryHandle{handle: NFSHandle::with_initial_values(KIND_DIRECTORY.to_string(), name.clone()), kind: KIND_DIRECTORY.to_string(), name}
   }
 
   /// Class method
-  pub async fn entries(&self) -> napi::Result<HashMap<String, String>> {
-    let res: HashMap<String, String> = HashMap::new();
+  pub fn is_same_entry(&self, other: NFSHandle) -> napi::Result<bool> {
+    let res = false;
     Ok(res)
   }
 
-  pub async fn keys(&self) -> napi::Result<Vec<String>> {
-    let res: Vec<String>  = Vec::new();
+  pub async fn query_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = String::new();
     Ok(res)
   }
 
-  pub async fn values(&self) -> napi::Result<Vec<String>> {
-    let res: Vec<String>  = Vec::new();
+  pub async fn request_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = String::new();
+    Ok(res)
+  }
+
+  pub fn entries(&self) -> napi::Result<AsyncIterableIterator> {
+    let res = AsyncIterableIterator{};
+    Ok(res)
+  }
+
+  pub fn keys(&self) -> napi::Result<AsyncIterableIterator> {
+    let res = AsyncIterableIterator{};
+    Ok(res)
+  }
+
+  pub fn values(&self) -> napi::Result<AsyncIterableIterator> {
+    let res = AsyncIterableIterator{};
     Ok(res)
   }
 
@@ -309,7 +389,7 @@ impl NFSDirectoryHandle {
     Ok(res)
   }
 
-  pub async fn remove_entry(&self, name: String) -> napi::Result<()> {
+  pub async fn remove_entry(&self, name: String, options: Option<NFSRemoveOptions>) -> napi::Result<()> {
     Ok(())
   }
 
@@ -322,106 +402,118 @@ impl NFSDirectoryHandle {
 #[napi]
 struct JsNfsDirectoryHandle {
   inner: NFSDirectoryHandle,
-  pub kind: JsNfsHandleKind,
+  pub kind: String,
   pub name: String
 }
 
 #[napi]
 impl JsNfsDirectoryHandle {
 
-  #[napi(factory)]
-  pub fn with_initial_name(name: String) -> Self {
-    JsNfsDirectoryHandle{inner: NFSDirectoryHandle::with_initial_name(name.clone()), kind: JsNfsHandleKind::directory, name}
-  }
-
   #[napi(constructor)]
-  pub fn new() -> Self {
-    JsNfsDirectoryHandle{inner: NFSDirectoryHandle::new(), kind: JsNfsHandleKind::directory, name: String::new()}
+  pub fn new(url: String) -> Self {
+    JsNfsDirectoryHandle{inner: NFSDirectoryHandle::with_initial_name(String::new()), kind: KIND_DIRECTORY.to_string(), name: String::new()}
   }
 
 
   /// Class method
   #[napi]
-  pub async fn entries(&self) -> napi::Result<HashMap<String, String>> {
-    let ret = self.inner.entries().await?;
+  pub fn is_same_entry(&self, other: JsNfsHandle) -> napi::Result<bool> {
+    self.inner.is_same_entry(other.inner)
+  }
+
+  #[napi]
+  pub async fn query_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = self.inner.query_permission(perm.inner).await?;
+    Ok(res)
+  }
+
+  #[napi]
+  pub async fn request_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = self.inner.request_permission(perm.inner).await?;
+    Ok(res)
+  }
+
+  #[napi]
+  pub fn entries(&self) -> napi::Result<AsyncIterableIterator> {
+    self.inner.entries()
+  }
+
+  #[napi]
+  pub fn keys(&self) -> napi::Result<AsyncIterableIterator> {
+    self.inner.keys()
+  }
+
+  #[napi]
+  pub fn values(&self) -> napi::Result<AsyncIterableIterator> {
+    self.inner.values()
+  }
+
+  #[napi]
+  pub async fn get_directory_handle(&self, name: String, options: Option<JsNfsGetDirectoryOptions>) -> napi::Result<JsNfsDirectoryHandle> {
+    let res = self.inner.get_directory_handle(name.clone(), options.and_then(|opt| Some(opt.inner))).await?;
+    let ret = JsNfsDirectoryHandle{inner: res, kind: KIND_DIRECTORY.to_string(), name}; // XXX: correct to use `name` param for new directory handle name?
     Ok(ret)
   }
 
   #[napi]
-  pub async fn keys(&self) -> napi::Result<Vec<String>> {
-    let ret = self.inner.keys().await?;
+  pub async fn get_file_handle(&self, name: String, options: Option<JsNfsGetFileOptions>) -> napi::Result<JsNfsFileHandle> {
+    let res = self.inner.get_file_handle(name.clone(), options.and_then(|opt| Some(opt.inner))).await?;
+    let ret = JsNfsFileHandle{inner: res, kind: KIND_FILE.to_string(), name}; // XXX: correct to use `name` param for new file handle name?
     Ok(ret)
   }
 
   #[napi]
-  pub async fn values(&self) -> napi::Result<Vec<String>> {
-    let ret = self.inner.values().await?;
+  pub async fn remove_entry(&self, name: String, options: Option<JsNfsRemoveOptions>) -> napi::Result<()> {
+    let ret = self.inner.remove_entry(name, options.and_then(|opt| Some(opt.inner))).await?;
     Ok(ret)
   }
 
   #[napi]
-  pub async fn get_directory_handle(&self, name: String) -> napi::Result<JsNfsDirectoryHandle> {
-    let res = self.inner.get_directory_handle(name.clone(), None).await?;
-    let ret = JsNfsDirectoryHandle{inner: res, kind: JsNfsHandleKind::directory, name}; // XXX: correct to use `name` param for new directory handle name?
+  pub async fn resolve(&self, possible_descendant: JsNfsHandle) -> napi::Result<Vec<String>> {
+    let ret = self.inner.resolve(possible_descendant.inner).await?;
     Ok(ret)
   }
-
-  // TODO
-  // #[napi]
-  // pub async fn get_directory_handle(&self, name: String, options: Option<JsNfsGetDirectoryOptions>) -> napi::Result<JsNfsDirectoryHandle> {
-  //   let res = self.inner.get_directory_handle(name, options.and_then(|opt| Some(opt.inner))).await?;
-  //   let ret = JsNfsDirectoryHandle{inner: res};
-  //   Ok(ret)
-  // }
-
-  #[napi]
-  pub async fn get_file_handle(&self, name: String) -> napi::Result<JsNfsFileHandle> {
-    let res = self.inner.get_file_handle(name.clone(), None).await?;
-    let ret = JsNfsFileHandle{inner: res, kind: JsNfsHandleKind::file, name}; // XXX: correct to use `name` param for new file handle name?
-    Ok(ret)
-  }
-
-  // TODO
-  // #[napi]
-  // pub async fn get_file_handle(&self, name: String, options: Option<JsNfsGetFileOptions>) -> napi::Result<JsNfsFileHandle> {
-  //   let res = self.inner.get_file_handle(name, options.and_then(|opt| Some(opt.inner))).await?;
-  //   let ret = JsNfsFileHandle{inner: res};
-  //   Ok(ret)
-  // }
-
-  #[napi]
-  pub async fn remove_entry(&self, name: String) -> napi::Result<()> {
-    let ret = self.inner.remove_entry(name).await?;
-    Ok(ret)
-  }
-
-  // TODO
-  // #[napi]
-  // pub async fn resolve(&self, possible_descendant: JsNfsHandle) -> napi::Result<Vec<String>> {
-  //   let ret = self.inner.resolve(possible_descendant.inner).await?;
-  //   Ok(ret)
-  // }
 }
 
 struct NFSFileHandle {
   handle: NFSHandle,
-  kind: JsNfsHandleKind,
+  kind: String,
   name: String
 }
 
 impl NFSFileHandle {
 
   pub fn new() -> Self {
-    NFSFileHandle{handle: NFSHandle::new(JsNfsHandleKind::file), kind: JsNfsHandleKind::file, name: String::new()}
+    Self::with_initial_name(String::new())
   }
 
   pub fn with_initial_name(name: String) -> Self {
-    NFSFileHandle{handle: NFSHandle::with_initial_values(JsNfsHandleKind::file, name.clone()), kind: JsNfsHandleKind::file, name}
+    NFSFileHandle{handle: NFSHandle::with_initial_values(KIND_FILE.to_string(), name.clone()), kind: KIND_FILE.to_string(), name}
   }
 
   /// Class method
+  pub fn is_same_entry(&self, other: NFSHandle) -> napi::Result<bool> {
+    let res = false;
+    Ok(res)
+  }
+
+  pub async fn query_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = String::new();
+    Ok(res)
+  }
+
+  pub async fn request_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = String::new();
+    Ok(res)
+  }
+
   pub async fn get_file(&self) -> napi::Result<NFSFile> {
     let res = NFSFile::new();
+    Ok(res)
+  }
+
+  pub async fn create_writable(&self, options: Option<JsNfsCreateWritableOptions>) -> napi::Result<JsNfsWritableFileStream> {
+    let res = JsNfsWritableFileStream::new();
     Ok(res)
   }
 }
@@ -429,35 +521,48 @@ impl NFSFileHandle {
 #[napi]
 struct JsNfsFileHandle {
   inner: NFSFileHandle,
-  pub kind: JsNfsHandleKind,
+  pub kind: String,
   pub name: String
 }
 
 #[napi]
 impl JsNfsFileHandle {
 
-  #[napi(factory)]
-  pub fn with_initial_name(name: String) -> Self {
-    JsNfsFileHandle{inner: NFSFileHandle::with_initial_name(name.clone()), kind: JsNfsHandleKind::file, name}
-  }
-
-  #[napi(constructor)]
-  pub fn new() -> Self {
-    JsNfsFileHandle{inner: NFSFileHandle::new(), kind: JsNfsHandleKind::file, name: String::new()}
-  }
-
   /// Class method
+  #[napi]
+  pub fn is_same_entry(&self, other: JsNfsHandle) -> napi::Result<bool> {
+    self.inner.is_same_entry(other.inner)
+  }
+
+  #[napi]
+  pub async fn query_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = self.inner.query_permission(perm.inner).await?;
+    Ok(res)
+  }
+
+  #[napi]
+  pub async fn request_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
+    let res = self.inner.request_permission(perm.inner).await?;
+    Ok(res)
+  }
+
   #[napi]
   pub async fn get_file(&self) -> napi::Result<JsNfsFile> {
     let ret = self.inner.get_file().await?;
     let res = JsNfsFile::new();
     Ok(res)
   }
+
+  #[napi]
+  pub async fn create_writable(&self, options: Option<JsNfsCreateWritableOptions>) -> napi::Result<JsNfsWritableFileStream> {
+    let res = self.inner.create_writable(options).await?;
+    Ok(res)
+  }
 }
 
 struct NFSFile {
   size: u32,
-  r#type: String,
+  _type: String,
   last_modified: u32,
   name: String,
   webkit_relative_path: String
@@ -468,31 +573,26 @@ impl NFSFile {
   pub fn new() -> Self {
     NFSFile{
       size: 0,
-      r#type: String::new(),
+      _type: String::new(),
       last_modified: 0,
       name: String::new(),
       webkit_relative_path: String::new()
     }
   }
 
-  pub fn with_initial_values(size: u32, r#type: String, last_modified: u32, name: String, webkit_relative_path: String) -> Self {
-    NFSFile{size, r#type, last_modified, name, webkit_relative_path}
-  }
-
   /// Class method
-  // TODO
-  // pub async fn array_buffer(&self) -> napi::Result<JsArrayBuffer> {
-  //   todo!()
-  // }
+  pub async fn array_buffer(&self) -> napi::Result<ArrayBuffer> {
+    let res = ArrayBuffer{};
+    Ok(res)
+  }
 
   pub fn slice(&self, start: Option<u32>, end: Option<u32>, content_type: Option<String>) -> NFSBlob {
-    NFSBlob{ size: 0, r#type: String::new()}
+    NFSBlob{ size: 0, _type: String::new()}
   }
 
-  // TODO
-  // pub fn stream(&self) -> ReadableStream<Uint8Array> {
-  //   todo!()
-  // }
+  pub fn stream(&self) -> ReadableStream {
+    ReadableStream{locked: false}
+  }
 
   pub async fn text(&self) -> napi::Result<String> {
     let res = String::new();
@@ -504,7 +604,8 @@ impl NFSFile {
 struct JsNfsFile {
   inner: NFSFile,
   pub size: u32,
-  pub Type: String, // XXX: can't name it `type`
+  #[napi]
+  pub _type: String, // XXX: can't name it `type`
   pub last_modified: u32,
   pub name: String,
   pub webkit_relative_path: String
@@ -513,26 +614,11 @@ struct JsNfsFile {
 #[napi]
 impl JsNfsFile {
 
-  // XXX: does it make sense to generate factory for JsNfsFile?
-  // #[napi(factory)]
-  pub fn with_initial_values(size: u32, Type: String, last_modified: u32, name: String, webkit_relative_path: String) -> Self {
-    JsNfsFile{
-      inner: NFSFile::with_initial_values(size, Type.clone(), last_modified, name.clone(), webkit_relative_path.clone()),
-      size,
-      Type,
-      last_modified,
-      name,
-      webkit_relative_path
-    }
-  }
-
-  // XXX: does it make sense to generate constructor for JsNfsFile?
-  // #[napi(constructor)]
   pub fn new() -> Self {
     JsNfsFile{
       inner: NFSFile::new(),
       size: 0,
-      Type: String::new(),
+      _type: String::new(),
       last_modified: 0,
       name: String::new(),
       webkit_relative_path: String::new()
@@ -540,23 +626,22 @@ impl JsNfsFile {
   }
 
   /// Class method
-  // TODO
-  // #[napi]
-  // pub async fn array_buffer(&self) -> napi::Result<JsArrayBuffer> {
-  //   todo!()
-  // }
+  #[napi]
+  pub async fn array_buffer(&self) -> napi::Result<ArrayBuffer> {
+    let res = self.inner.array_buffer().await?;
+    Ok(res)
+  }
 
   #[napi]
   pub fn slice(&self, start: Option<u32>, end: Option<u32>, content_type: Option<String>) -> JsNfsBlob {
     let res = self.inner.slice(start, end, content_type);
-    JsNfsBlob{Type: res.r#type.clone(), size: res.size, inner: res}
+    JsNfsBlob{_type: res._type.clone(), size: res.size, inner: res}
   }
 
-  // TODO
-  // #[napi]
-  // pub fn stream(&self) -> ReadableStream<Uint8Array> {
-  //   todo!()
-  // }
+  #[napi]
+  pub fn stream(&self) -> ReadableStream {
+    self.inner.stream()
+  }
 
   #[napi]
   pub async fn text(&self) -> napi::Result<String> {
@@ -567,36 +652,24 @@ impl JsNfsFile {
 
 struct NFSBlob {
   size: u32,
-  r#type: String
+  _type: String
 }
 
 impl NFSBlob {
 
-  pub fn new() -> Self {
-    NFSBlob{
-      size: 0,
-      r#type: String::new()
-    }
-  }
-
-  pub fn with_initial_values(size: u32, r#type: String) -> Self {
-    NFSBlob{size, r#type}
-  }
-
   /// Class method
-  // TODO
-  // pub async fn array_buffer(&self) -> napi::Result<JsArrayBuffer> {
-  //   todo!()
-  // }
+  pub async fn array_buffer(&self) -> napi::Result<ArrayBuffer> {
+    let res = ArrayBuffer{};
+    Ok(res)
+  }
 
   pub fn slice(&self, start: Option<u32>, end: Option<u32>, content_type: Option<String>) -> NFSBlob {
-    NFSBlob{size: 0, r#type: String::new()}
+    NFSBlob{size: 0, _type: String::new()}
   }
 
-  // TODO
-  // pub fn stream(&self) -> ReadableStream<Uint8Array> {
-  //   todo!()
-  // }
+  pub fn stream(&self) -> ReadableStream {
+    ReadableStream{locked: false}
+  }
 
   pub async fn text(&self) -> napi::Result<String> {
     let res = String::new();
@@ -608,50 +681,30 @@ impl NFSBlob {
 struct JsNfsBlob {
   inner: NFSBlob,
   pub size: u32,
-  pub Type: String // XXX: can't name it `type`
+  #[napi]
+  pub _type: String // XXX: can't name it `type`
 }
 
 #[napi]
 impl JsNfsBlob {
 
-  // XXX: does it make sense to generate factory for JsNfsBlob?
-  // #[napi(factory)]
-  pub fn with_initial_values(size: u32, Type: String) -> Self {
-    JsNfsBlob{
-      inner: NFSBlob::with_initial_values(size, Type.clone()),
-      size,
-      Type
-    }
-  }
-
-  // XXX: does it make sense to generate constructor for JsNfsBlob?
-  // #[napi(constructor)]
-  pub fn new() -> Self {
-    JsNfsBlob{
-      inner: NFSBlob::new(),
-      size: 0,
-      Type: String::new()
-    }
-  }
-
   /// Class method
-  // TODO
-  // #[napi]
-  // pub async fn array_buffer(&self) -> napi::Result<JsArrayBuffer> {
-  //   todo!()
-  // }
+  #[napi]
+  pub async fn array_buffer(&self) -> napi::Result<ArrayBuffer> {
+    let res = self.inner.array_buffer().await?;
+    Ok(res)
+  }
 
   #[napi]
   pub fn slice(&self, start: Option<u32>, end: Option<u32>, content_type: Option<String>) -> JsNfsBlob {
     let res = self.inner.slice(start, end, content_type);
-    JsNfsBlob{Type: res.r#type.clone(), size: res.size, inner: res}
+    JsNfsBlob{_type: res._type.clone(), size: res.size, inner: res}
   }
 
-  // TODO
-  // #[napi]
-  // pub fn stream(&self) -> ReadableStream<Uint8Array> {
-  //   todo!()
-  // }
+  #[napi]
+  pub fn stream(&self) -> ReadableStream {
+    self.inner.stream()
+  }
 
   #[napi]
   pub async fn text(&self) -> napi::Result<String> {
