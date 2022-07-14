@@ -220,8 +220,12 @@ if (!nativeBinding) {
 
 const {
   ArrayBuffer,
-  AsyncIterableIterator,
-  ReadableStream,
+  AsyncIterableIteratorDirectoryEntry,
+  AsyncIterableIteratorFileEntry,
+  AsyncIterableIteratorEntries,
+  AsyncIterableIteratorKeys,
+  AsyncIterableIteratorValues,
+  ReadableStreamUint8Array,
   JsNfsWritableFileStream,
   JsNfsHandlePermissionDescriptor,
   JsNfsGetDirectoryOptions,
@@ -236,8 +240,12 @@ const {
 } = nativeBinding
 
 module.exports.ArrayBuffer = ArrayBuffer
-module.exports.AsyncIterableIterator = AsyncIterableIterator
-module.exports.ReadableStream = ReadableStream
+module.exports.AsyncIterableIteratorDirectoryEntry = AsyncIterableIteratorDirectoryEntry
+module.exports.AsyncIterableIteratorFileEntry = AsyncIterableIteratorFileEntry
+module.exports.AsyncIterableIteratorEntries = AsyncIterableIteratorEntries
+module.exports.AsyncIterableIteratorKeys = AsyncIterableIteratorKeys
+module.exports.AsyncIterableIteratorValues = AsyncIterableIteratorValues
+module.exports.ReadableStreamUint8Array = ReadableStreamUint8Array
 module.exports.JsNfsWritableFileStream = JsNfsWritableFileStream
 module.exports.JsNfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor
 module.exports.JsNfsGetDirectoryOptions = JsNfsGetDirectoryOptions

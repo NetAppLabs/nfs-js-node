@@ -21,6 +21,7 @@ napi = { version = "2" , default-features = false, features = [
   "chrono_date",
 ] }
 napi-derive = { version = "2" }
+serde_json = "1.0.82"
 
 [build-dependencies]
 napi-build = "2"
