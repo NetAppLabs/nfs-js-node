@@ -1,5 +1,7 @@
 #![deny(clippy::all)]
 
+use std::str::FromStr;
+
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use serde_json::{Value, Map};
@@ -98,76 +100,9 @@ const KIND_DIRECTORY: &str = "directory";
 const PERM_READ: &str = "read";
 const PERM_READWRITE: &str = "readwrite";
 
-#[napi]
-struct ArrayBuffer {}
-
-#[napi]
-struct AsyncIterableIteratorDirectoryEntry {
-  pub key: String,
-  pub value: JsNfsDirectoryHandle
-}
-
-#[napi]
-struct AsyncIterableIteratorFileEntry {
-  pub key: String,
-  pub value: JsNfsFileHandle
-}
-
-#[napi]
-struct AsyncIterableIteratorEntries {}
-
-#[napi]
-impl AsyncIterableIteratorEntries {
-
-  pub fn new() -> Self {
-    AsyncIterableIteratorEntries{}
-  }
-
-  #[napi]
-  pub async fn next(&self) -> napi::Result<Vec<Either<AsyncIterableIteratorDirectoryEntry, AsyncIterableIteratorFileEntry>>> {
-    let res: Vec<Either<AsyncIterableIteratorDirectoryEntry, AsyncIterableIteratorFileEntry>> = Vec::new();
-    Ok(res)
-  }
-}
-
-#[napi]
-struct AsyncIterableIteratorKeys {}
-
-#[napi]
-impl AsyncIterableIteratorKeys {
-
-  pub fn new() -> Self {
-    AsyncIterableIteratorKeys{}
-  }
-
-  #[napi]
-  pub async fn next(&self) -> napi::Result<String> {
-    let res = String::new();
-    Ok(res)
-  }
-}
-
-#[napi]
-struct AsyncIterableIteratorValues {}
-
-#[napi]
-impl AsyncIterableIteratorValues {
-
-  pub fn new() -> Self {
-    AsyncIterableIteratorValues{}
-  }
-
-  #[napi]
-  pub async fn next(&self) -> napi::Result<Either<JsNfsDirectoryHandle, JsNfsFileHandle>> {
-    let res = JsNfsDirectoryHandle::new(String::new());
-    Ok(napi::Either::A(res))
-  }
-}
-
-#[napi]
-struct ReadableStreamUint8Array {
-  pub locked: bool
-}
+const PERM_STATE_GRANTED: &str = "granted";
+const PERM_STATE_DENIED: &str = "denied";
+const PERM_STATE_PROMPT: &str = "prompt";
 
 struct NFSWritableFileStream {
   locked: bool
@@ -195,6 +130,7 @@ impl NFSWritableFileStream {
 #[napi]
 struct JsNfsWritableFileStream {
   inner: NFSWritableFileStream,
+  #[napi(js_name="readonly locked")]
   pub locked: bool
 }
 
@@ -229,6 +165,7 @@ struct NFSHandlePermissionDescriptor {
 #[napi]
 struct JsNfsHandlePermissionDescriptor {
   inner: NFSHandlePermissionDescriptor,
+  #[napi(ts_type="'read' | 'readwrite'")]
   pub mode: String
 }
 
@@ -237,7 +174,6 @@ impl FromNapiValue for JsNfsHandlePermissionDescriptor {
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
     let mode = obj["mode"].as_str().unwrap().to_string();
-    // TODO: check whether mode matches either PERM_READ or PERM_READWRITE and, if not, return error?
     let res = JsNfsHandlePermissionDescriptor{inner: NFSHandlePermissionDescriptor{mode: mode.clone()}, mode};
     Ok(res)
   }
@@ -339,27 +275,34 @@ impl NFSHandle {
     NFSHandle{kind, name}
   }
 
-  /// Class method
   pub fn is_same_entry(&self, other: NFSHandle) -> napi::Result<bool> {
-    let res = false;
+    let res = other.kind == self.kind && other.name == self.name;
     Ok(res)
   }
 
   pub async fn query_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
-    let res = String::new();
-    Ok(res)
+    match perm.mode.as_str() {
+      PERM_READ => Ok(PERM_STATE_GRANTED.to_string()),
+      PERM_READWRITE => Ok(PERM_STATE_DENIED.to_string()),
+      _ => Ok(PERM_STATE_PROMPT.to_string())
+    }
   }
 
   pub async fn request_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
-    let res = String::new();
-    Ok(res)
+    match perm.mode.as_str() {
+      PERM_READ => Ok(PERM_STATE_PROMPT.to_string()),
+      PERM_READWRITE => Ok(PERM_STATE_GRANTED.to_string()),
+      _ => Ok(PERM_STATE_DENIED.to_string())
+    }
   }
 }
 
 #[napi]
 struct JsNfsHandle {
   inner: NFSHandle,
+  #[napi(js_name="readonly kind", ts_type="'directory' | 'file'")]
   pub kind: String,
+  #[napi(js_name="readonly name")]
   pub name: String
 }
 
@@ -370,7 +313,6 @@ impl JsNfsHandle {
     JsNfsHandle{inner: NFSHandle::with_initial_values(kind.clone(), name.clone()), kind, name}
   }
 
-  /// Class method
   #[napi]
   pub fn is_same_entry(&self, other: JsNfsHandle) -> napi::Result<bool> {
     self.inner.is_same_entry(other.inner)
@@ -393,9 +335,9 @@ impl FromNapiValue for JsNfsHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let kind = obj["kind"].as_str().unwrap().to_string();
-    let name = obj["name"].as_str().unwrap().to_string();
-    let res = JsNfsHandle::with_initial_values(kind, name);
+    let kind = obj.get("kind").and_then(|val| Some(val.as_str().unwrap().to_string()));
+    let name = obj.get("name").and_then(|val| Some(val.as_str().unwrap().to_string()));
+    let res = JsNfsHandle::with_initial_values(kind.unwrap_or_else(|| String::new()), name.unwrap_or_else(|| String::new()));
     Ok(res)
   }
 }
@@ -422,34 +364,32 @@ impl NFSDirectoryHandle {
     NFSDirectoryHandle{handle: NFSHandle::with_initial_values(KIND_DIRECTORY.to_string(), name.clone()), kind: KIND_DIRECTORY.to_string(), name}
   }
 
-  /// Class method
   pub fn is_same_entry(&self, other: NFSHandle) -> napi::Result<bool> {
-    let res = false;
-    Ok(res)
+    self.handle.is_same_entry(other)
   }
 
   pub async fn query_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
-    let res = String::new();
+    let res = self.handle.query_permission(perm).await?;
     Ok(res)
   }
 
   pub async fn request_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
-    let res = String::new();
+    let res = self.handle.request_permission(perm).await?;
     Ok(res)
   }
 
-  pub fn entries(&self) -> napi::Result<AsyncIterableIteratorEntries> {
-    let res = AsyncIterableIteratorEntries{};
+  pub fn entries(&self) -> napi::Result<Value> {
+    let res = Value::from_str("{'value': undefined, 'done': true}")?;
     Ok(res)
   }
 
-  pub fn keys(&self) -> napi::Result<AsyncIterableIteratorKeys> {
-    let res = AsyncIterableIteratorKeys{};
+  pub fn keys(&self) -> napi::Result<Value> {
+    let res = Value::from_str("{'value': undefined, 'done': true}")?;
     Ok(res)
   }
 
-  pub fn values(&self) -> napi::Result<AsyncIterableIteratorValues> {
-    let res = AsyncIterableIteratorValues{};
+  pub fn values(&self) -> napi::Result<Value> {
+    let res = Value::from_str("{'value': undefined, 'done': true}")?;
     Ok(res)
   }
 
@@ -477,7 +417,9 @@ impl NFSDirectoryHandle {
 #[napi]
 struct JsNfsDirectoryHandle {
   inner: NFSDirectoryHandle,
+  #[napi(js_name="readonly kind", ts_type="'directory'")]
   pub kind: String,
+  #[napi(js_name="readonly name")]
   pub name: String
 }
 
@@ -490,11 +432,16 @@ impl JsNfsDirectoryHandle {
 
   #[napi(constructor)]
   pub fn new(url: String) -> Self {
-    JsNfsDirectoryHandle{inner: NFSDirectoryHandle::with_initial_name(String::new()), kind: KIND_DIRECTORY.to_string(), name: String::new()}
+    let inner = NFSDirectoryHandle::open(url);
+    JsNfsDirectoryHandle{kind: KIND_DIRECTORY.to_string(), name: inner.name.clone(), inner}
   }
 
+  #[napi]
+  pub fn to_handle(&self) -> JsNfsHandle {
+    let inner = NFSHandle::with_initial_values(self.kind.clone(), self.name.clone());
+    JsNfsHandle{kind: inner.kind.clone(), name: inner.name.clone(), inner: inner}
+  }
 
-  /// Class method
   #[napi]
   pub fn is_same_entry(&self, other: JsNfsHandle) -> napi::Result<bool> {
     self.inner.is_same_entry(other.inner)
@@ -512,18 +459,18 @@ impl JsNfsDirectoryHandle {
     Ok(res)
   }
 
-  #[napi]
-  pub fn entries(&self) -> napi::Result<AsyncIterableIteratorEntries> {
+  #[napi(ts_return_type="AsyncIterableIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>")]
+  pub fn entries(&self) -> napi::Result<Value> {
     self.inner.entries()
   }
 
-  #[napi]
-  pub fn keys(&self) -> napi::Result<AsyncIterableIteratorKeys> {
+  #[napi(ts_return_type="AsyncIterableIterator<string>")]
+  pub fn keys(&self) -> napi::Result<Value> {
     self.inner.keys()
   }
 
-  #[napi]
-  pub fn values(&self) -> napi::Result<AsyncIterableIteratorValues> {
+  #[napi(ts_return_type="AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>")]
+  pub fn values(&self) -> napi::Result<Value> {
     self.inner.values()
   }
 
@@ -552,15 +499,22 @@ impl JsNfsDirectoryHandle {
     let ret = self.inner.resolve(possible_descendant.inner).await?;
     Ok(ret)
   }
+
+  #[napi(js_name="[Symbol.asyncIterator]", ts_return_type="AsyncIterableIterator<[string, JsNfsDirectoryHandle | JsNfsFileHandle]>")] // XXX: ts_return_type="JsNfsDirectoryHandle['entries']"
+  pub fn iter(&self) -> Result<Value> {
+    // let res = self.inner.entries();
+    let res = Value::from_str("{'value': undefined, 'done': true}")?;
+    Ok(res)
+  }
 }
 
 impl FromNapiValue for JsNfsDirectoryHandle {
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let kind = obj["kind"].as_str().unwrap().to_string();
+    let kind = obj.get("kind").and_then(|val| Some(val.as_str().unwrap().to_string()));
     // TODO: check whether kind matches KIND_DIRECTORY and, if not, return error?
-    let name = obj["name"].as_str().unwrap().to_string();
-    let res = JsNfsDirectoryHandle::with_initial_name(name);
+    let name = obj.get("name").and_then(|val| Some(val.as_str().unwrap().to_string()));
+    let res = JsNfsDirectoryHandle::with_initial_name(name.unwrap_or_else(|| String::new()));
     Ok(res)
   }
 }
@@ -582,19 +536,17 @@ impl NFSFileHandle {
     NFSFileHandle{handle: NFSHandle::with_initial_values(KIND_FILE.to_string(), name.clone()), kind: KIND_FILE.to_string(), name}
   }
 
-  /// Class method
   pub fn is_same_entry(&self, other: NFSHandle) -> napi::Result<bool> {
-    let res = false;
-    Ok(res)
+    self.handle.is_same_entry(other)
   }
 
   pub async fn query_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
-    let res = String::new();
+    let res = self.handle.query_permission(perm).await?;
     Ok(res)
   }
 
   pub async fn request_permission(&self, perm: NFSHandlePermissionDescriptor) -> napi::Result<String> {
-    let res = String::new();
+    let res = self.handle.request_permission(perm).await?;
     Ok(res)
   }
 
@@ -613,7 +565,9 @@ impl NFSFileHandle {
 #[napi]
 struct JsNfsFileHandle {
   inner: NFSFileHandle,
+  #[napi(js_name="readonly kind", ts_type="'file'")]
   pub kind: String,
+  #[napi(js_name="readonly name")]
   pub name: String
 }
 
@@ -624,7 +578,12 @@ impl JsNfsFileHandle {
     JsNfsFileHandle{inner: NFSFileHandle::with_initial_name(name.clone()), kind: KIND_FILE.to_string(), name}
   }
 
-  /// Class method
+  #[napi]
+  pub fn to_handle(&self) -> JsNfsHandle {
+    let inner = NFSHandle::with_initial_values(self.kind.clone(), self.name.clone());
+    JsNfsHandle{kind: inner.kind.clone(), name: inner.name.clone(), inner: inner}
+  }
+
   #[napi]
   pub fn is_same_entry(&self, other: JsNfsHandle) -> napi::Result<bool> {
     self.inner.is_same_entry(other.inner)
@@ -660,10 +619,10 @@ impl FromNapiValue for JsNfsFileHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let kind = obj["kind"].as_str().unwrap().to_string();
+    let kind = obj.get("kind").and_then(|val| Some(val.as_str().unwrap().to_string()));
     // TODO: check whether kind matches KIND_FILE and, if not, return error?
-    let name = obj["name"].as_str().unwrap().to_string();
-    let res = JsNfsFileHandle::with_initial_name(name);
+    let name = obj.get("name").and_then(|val| Some(val.as_str().unwrap().to_string()));
+    let res = JsNfsFileHandle::with_initial_name(name.unwrap_or_else(|| String::new()));
     Ok(res)
   }
 }
@@ -688,9 +647,8 @@ impl NFSFile {
     }
   }
 
-  /// Class method
-  pub async fn array_buffer(&self) -> napi::Result<ArrayBuffer> {
-    let res = ArrayBuffer{};
+  pub async fn array_buffer(&self) -> napi::Result<Value> {
+    let res = Value::Null;
     Ok(res)
   }
 
@@ -698,8 +656,9 @@ impl NFSFile {
     NFSBlob{size: 0, _type: String::new()}
   }
 
-  pub fn stream(&self) -> ReadableStreamUint8Array {
-    ReadableStreamUint8Array{locked: false}
+  pub fn stream(&self) -> napi::Result<Value> {
+    let res = Value::Null;
+    Ok(res)
   }
 
   pub async fn text(&self) -> napi::Result<String> {
@@ -711,10 +670,15 @@ impl NFSFile {
 #[napi]
 struct JsNfsFile {
   inner: NFSFile,
+  #[napi(js_name="readonly size")]
   pub size: u32,
+  #[napi(js_name="readonly type")]
   pub _type: String,
+  #[napi(js_name="readonly lastModified")]
   pub last_modified: u32,
+  #[napi(js_name="readonly name")]
   pub name: String,
+  #[napi(js_name="readonly webkitRelativePath")]
   pub webkit_relative_path: String
 }
 
@@ -732,9 +696,8 @@ impl JsNfsFile {
     }
   }
 
-  /// Class method
-  #[napi]
-  pub async fn array_buffer(&self) -> napi::Result<ArrayBuffer> {
+  #[napi(ts_return_type="Promise<ArrayBuffer>")]
+  pub async fn array_buffer(&self) -> napi::Result<Value> {
     let res = self.inner.array_buffer().await?;
     Ok(res)
   }
@@ -745,8 +708,8 @@ impl JsNfsFile {
     JsNfsBlob{_type: res._type.clone(), size: res.size, inner: res}
   }
 
-  #[napi]
-  pub fn stream(&self) -> ReadableStreamUint8Array {
+  #[napi(ts_return_type="ReadableStream<Uint8Array>")]
+  pub fn stream(&self) -> napi::Result<Value> {
     self.inner.stream()
   }
 
@@ -764,9 +727,8 @@ struct NFSBlob {
 
 impl NFSBlob {
 
-  /// Class method
-  pub async fn array_buffer(&self) -> napi::Result<ArrayBuffer> {
-    let res = ArrayBuffer{};
+  pub async fn array_buffer(&self) -> napi::Result<Value> {
+    let res = Value::Null;
     Ok(res)
   }
 
@@ -774,8 +736,9 @@ impl NFSBlob {
     NFSBlob{size: 0, _type: String::new()}
   }
 
-  pub fn stream(&self) -> ReadableStreamUint8Array {
-    ReadableStreamUint8Array{locked: false}
+  pub fn stream(&self) -> napi::Result<Value> {
+    let res = Value::Null;
+    Ok(res)
   }
 
   pub async fn text(&self) -> napi::Result<String> {
@@ -787,16 +750,17 @@ impl NFSBlob {
 #[napi]
 struct JsNfsBlob {
   inner: NFSBlob,
+  #[napi(js_name="readonly size")]
   pub size: u32,
+  #[napi(js_name="readonly type")]
   pub _type: String
 }
 
 #[napi]
 impl JsNfsBlob {
 
-  /// Class method
-  #[napi]
-  pub async fn array_buffer(&self) -> napi::Result<ArrayBuffer> {
+  #[napi(ts_return_type="Promise<ArrayBuffer>")]
+  pub async fn array_buffer(&self) -> napi::Result<Value> {
     let res = self.inner.array_buffer().await?;
     Ok(res)
   }
@@ -807,8 +771,8 @@ impl JsNfsBlob {
     JsNfsBlob{_type: res._type.clone(), size: res.size, inner: res}
   }
 
-  #[napi]
-  pub fn stream(&self) -> ReadableStreamUint8Array {
+  #[napi(ts_return_type="ReadableStream<Uint8Array>")]
+  pub fn stream(&self) -> napi::Result<Value> {
     self.inner.stream()
   }
 
