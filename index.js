@@ -219,6 +219,9 @@ if (!nativeBinding) {
 }
 
 const {
+  JsNfsDirectoryHandleEntries,
+  JsNfsDirectoryHandleKeys,
+  JsNfsDirectoryHandleValues,
   JsNfsWritableFileStream,
   JsNfsHandlePermissionDescriptor,
   JsNfsGetDirectoryOptions,
@@ -232,6 +235,9 @@ const {
   JsNfsBlob,
 } = nativeBinding
 
+module.exports.JsNfsDirectoryHandleEntries = JsNfsDirectoryHandleEntries
+module.exports.JsNfsDirectoryHandleKeys = JsNfsDirectoryHandleKeys
+module.exports.JsNfsDirectoryHandleValues = JsNfsDirectoryHandleValues
 module.exports.JsNfsWritableFileStream = JsNfsWritableFileStream
 module.exports.JsNfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor
 module.exports.JsNfsGetDirectoryOptions = JsNfsGetDirectoryOptions
