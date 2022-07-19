@@ -9,22 +9,26 @@ export class JsNfsDirectoryHandleValues { }
 export class JsNfsWritableFileStream {
   readonly locked: boolean
   write(data: any): Promise<void>
+  seek(position: number): Promise<void>
+  truncate(size: number): Promise<void>
   close(): Promise<void>
+  abort(reason: string): Promise<string>
+  getWriter(): WritableStreamDefaultWriter
 }
 export class JsNfsHandlePermissionDescriptor {
   mode: 'read' | 'readwrite'
 }
 export class JsNfsGetDirectoryOptions {
-  create?: boolean
+  create: boolean
 }
 export class JsNfsGetFileOptions {
-  create?: boolean
+  create: boolean
 }
 export class JsNfsRemoveOptions {
-  recursive?: boolean
+  recursive: boolean
 }
 export class JsNfsCreateWritableOptions {
-  keepExistingData?: boolean
+  keepExistingData: boolean
 }
 export class JsNfsHandle {
   readonly kind: 'directory' | 'file'
