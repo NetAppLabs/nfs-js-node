@@ -238,6 +238,15 @@ impl NFSWritableFileStream {
   pub async fn abort(&self, reason: String) -> napi::Result<String> {
     Ok(reason)
   }
+
+  pub fn get_writer(&self) -> napi::Result<Value> {
+    let mut obj: Map<String, Value> = Map::new();
+    obj.insert("ready".to_string(), true.into());
+    obj.insert("closed".to_string(), false.into());
+    obj.insert("desiredSize".to_string(), 123.into());
+    let res = Value::Object(obj);
+    Ok(res)
+  }
 }
 
 #[napi]
@@ -290,7 +299,7 @@ impl JsNfsWritableFileStream {
 
   #[napi(ts_return_type="WritableStreamDefaultWriter")]
   pub fn get_writer(&self) -> napi::Result<Value> {
-    Ok(Value::Null)
+    self.inner.get_writer()
   }
 }
 

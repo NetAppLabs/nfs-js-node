@@ -370,3 +370,49 @@ test('should return locked writable when creating writable and keeping existing 
   const writable = await fileHandle.createWritable({keepExistingData: true});
   t.true(writable.locked)
 })
+
+test('should succeed when writing string', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("annar");
+  const writable = await fileHandle.createWritable({keepExistingData: true});
+  await t.notThrowsAsync(writable.write("hello rust"));
+})
+
+test('should succeed when seeking position', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("annar");
+  const writable = await fileHandle.createWritable({keepExistingData: true});
+  await t.notThrowsAsync(writable.seek(7));
+})
+
+test('should succeed when truncating size', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("annar");
+  const writable = await fileHandle.createWritable({keepExistingData: true});
+  await t.notThrowsAsync(writable.truncate(120));
+})
+
+test('should succeed when closing writable file stream', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("annar");
+  const writable = await fileHandle.createWritable({keepExistingData: true});
+  await t.notThrowsAsync(writable.close());
+})
+
+test('should succeed when aborting writable file stream', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("annar");
+  const writable = await fileHandle.createWritable({keepExistingData: true});
+  const reason = await writable.abort("I've got my reasons");
+  t.is(reason, "I've got my reasons");
+})
+
+test('should return writer for writable file stream', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("annar");
+  const writable = await fileHandle.createWritable({keepExistingData: true});
+  const writer = writable.getWriter();
+  t.true(writer.ready);
+  t.false(writer.closed);
+  t.is(writer.desiredSize, 123);
+})
