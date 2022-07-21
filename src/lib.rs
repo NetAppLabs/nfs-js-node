@@ -362,6 +362,7 @@ fn should_keep_existing_data(options: Option<JsNfsCreateWritableOptions>) -> boo
   false
 }
 
+#[derive(Clone)]
 #[napi]
 struct JsNfsHandle {
   #[napi(readonly, ts_type="'directory' | 'file'")]
@@ -379,6 +380,11 @@ impl JsNfsHandle {
 
   pub fn with_initial_values(kind: String, name: String) -> Self {
     JsNfsHandle{kind, name}
+  }
+
+  pub fn open(url: String) -> Self {
+    // TODO: use url param
+    JsNfsHandle{kind: KIND_DIRECTORY.to_string(), name: url} // FIXME: should not set name to url
   }
 
   #[napi]
@@ -436,18 +442,17 @@ impl JsNfsDirectoryHandle {
   }
 
   pub fn with_initial_name(name: String) -> Self {
-    JsNfsDirectoryHandle{handle: JsNfsHandle::with_initial_values(KIND_DIRECTORY.to_string(), name.clone()), iter: Value::Null, kind: KIND_DIRECTORY.to_string(), name}
+    JsNfsHandle::with_initial_values(KIND_DIRECTORY.to_string(), name).into()
   }
 
   #[napi(constructor)]
   pub fn open(url: String) -> Self {
-    // TODO: use url param
-    Self::with_initial_name(url)
+    JsNfsHandle::open(url).into()
   }
 
   #[napi]
   pub fn to_handle(&self) -> JsNfsHandle {
-    JsNfsHandle::with_initial_values(self.kind.clone(), self.name.clone())
+    self.handle.clone()
   }
 
   #[napi]
@@ -569,6 +574,13 @@ impl Into<Value> for JsNfsDirectoryHandle {
   }
 }
 
+impl From<JsNfsHandle> for JsNfsDirectoryHandle {
+
+  fn from(handle: JsNfsHandle) -> Self {
+    JsNfsDirectoryHandle{iter: Value::Null, kind: handle.kind.clone(), name: handle.name.clone(), handle: handle.clone()}
+  }
+}
+
 #[napi]
 struct JsNfsFileHandle {
   handle: JsNfsHandle,
@@ -586,12 +598,12 @@ impl JsNfsFileHandle {
   }
 
   pub fn with_initial_name(name: String) -> Self {
-    JsNfsFileHandle{handle: JsNfsHandle::with_initial_values(KIND_FILE.to_string(), name.clone()), kind: KIND_FILE.to_string(), name}
+    JsNfsHandle::with_initial_values(KIND_FILE.to_string(), name.clone()).into()
   }
 
   #[napi]
   pub fn to_handle(&self) -> JsNfsHandle {
-    JsNfsHandle::with_initial_values(self.kind.clone(), self.name.clone())
+    self.handle.clone()
   }
 
   #[napi]
@@ -644,6 +656,13 @@ impl Into<Value> for JsNfsFileHandle {
     obj.insert(FIELD_KIND.to_string(), KIND_FILE.into());
     obj.insert(FIELD_NAME.to_string(), self.name.into());
     Value::Object(obj)
+  }
+}
+
+impl From<JsNfsHandle> for JsNfsFileHandle {
+
+  fn from(handle: JsNfsHandle) -> Self {
+    JsNfsFileHandle{kind: handle.kind.clone(), name: handle.name.clone(), handle: handle.clone()}
   }
 }
 
