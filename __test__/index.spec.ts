@@ -46,16 +46,16 @@ test('should be granted read permission when querying on directory', async (t) =
   t.is(perm, "granted");
 })
 
-test('should be denied readwrite permission when querying on directory', async (t) => {
+test('should be granted readwrite permission when querying on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const perm = await rootHandle.queryPermission({mode: "readwrite"});
-  t.is(perm, "denied");
+  t.is(perm, "granted");
 })
 
-test('should be prompted for read permission when requesting on directory', async (t) => {
+test('should be granted read permission when requesting on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const perm = await rootHandle.requestPermission({mode: "read"});
-  t.is(perm, "prompt");
+  t.is(perm, "granted");
 })
 
 test('should be granted readwrite permission when requesting on directory', async (t) => {
@@ -71,18 +71,18 @@ test('should be granted read permission when querying on file', async (t) => {
   t.is(perm, "granted");
 })
 
-test('should be denied readwrite permission when querying on file', async (t) => {
+test('should be granted readwrite permission when querying on file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const perm = await fileHandle.queryPermission({mode: "readwrite"});
-  t.is(perm, "denied");
+  t.is(perm, "granted");
 })
 
-test('should be prompted for read permission when requesting on file', async (t) => {
+test('should be granted read permission when requesting on file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const perm = await fileHandle.requestPermission({mode: "read"});
-  t.is(perm, "prompt");
+  t.is(perm, "granted");
 })
 
 test('should be granted readwrite permission when requesting on file', async (t) => {
@@ -95,7 +95,13 @@ test('should be granted readwrite permission when requesting on file', async (t)
 // TODO
 test.failing('should iterate through directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const expectedEntries = [{key: "first", value: {kind: "directory", name: "first"}}, {key: "annar", value: {kind: "file", name: "annar"}}, {key: "3", value: {kind: "file", name: "3"}}];
+  const expectedEntries = [
+    {key: "3", value: {kind: "file", name: "3"}},
+    {key: "annar", value: {kind: "file", name: "annar"}},
+    {key: "first", value: {kind: "directory", name: "first"}},
+    {key: "..", value: {kind: "directory", name: ".."}},
+    {key: ".", value: {kind: "directory", name: "."}},
+  ];
   let i = 0;
   for await (const [ key, value ] of rootHandle) {
     if (i > expectedEntries.length) {
@@ -111,7 +117,13 @@ test.failing('should iterate through directory', async (t) => {
 
 test('should iterate through entries', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const expectedEntries = [{key: "first", value: {kind: "directory", name: "first"}}, {key: "annar", value: {kind: "file", name: "annar"}}, {key: "3", value: {kind: "file", name: "3"}}];
+  const expectedEntries = [
+    {key: "3", value: {kind: "file", name: "3"}},
+    {key: "annar", value: {kind: "file", name: "annar"}},
+    {key: "first", value: {kind: "directory", name: "first"}},
+    {key: "..", value: {kind: "directory", name: ".."}},
+    {key: ".", value: {kind: "directory", name: "."}},
+  ];
   let i = 0;
   for await (const [ key, value ] of rootHandle.entries()) {
     if (i > expectedEntries.length) {
@@ -127,7 +139,7 @@ test('should iterate through entries', async (t) => {
 
 test('should iterate through keys', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const expectedKeys = ["first", "annar", "3"];
+  const expectedKeys = ["3", "annar", "first", "..", "."];
   let i = 0;
   for await (const key of rootHandle.keys()) {
     if (i > expectedKeys.length) {
@@ -140,7 +152,13 @@ test('should iterate through keys', async (t) => {
 
 test('should iterate through values', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const expectedValues = [{kind: "directory", name: "first"}, {kind: "file", name: "annar"}, {kind: "file", name: "3"}];
+  const expectedValues = [
+    {kind: "file", name: "3"},
+    {kind: "file", name: "annar"},
+    {kind: "directory", name: "first"},
+    {kind: "directory", name: ".."},
+    {kind: "directory", name: "."},
+  ];
   let i = 0;
   for await (const { kind, name } of rootHandle.values()) {
     if (i > expectedValues.length) {
@@ -171,6 +189,7 @@ test('should return directory when creating new directory', async (t) => {
   const dirHandle = await rootHandle.getDirectoryHandle("newlywed", {create: true});
   t.is(dirHandle.kind, "directory");
   t.is(dirHandle.name, "newlywed");
+  await rootHandle.removeEntry(dirHandle.name);
 })
 
 test('should return directory when "creating" existing directory', async (t) => {
@@ -197,9 +216,10 @@ test('should return file when getting existing file', async (t) => {
 
 test('should return file when creating new file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const dirHandle = await rootHandle.getFileHandle("newfoundland", {create: true});
-  t.is(dirHandle.kind, "file");
-  t.is(dirHandle.name, "newfoundland");
+  const fileHandle = await rootHandle.getFileHandle("newfoundland", {create: true});
+  t.is(fileHandle.kind, "file");
+  t.is(fileHandle.name, "newfoundland");
+  await rootHandle.removeEntry(fileHandle.name);
 })
 
 test('should return file when "creating" existing file', async (t) => {
@@ -225,9 +245,8 @@ test('should return error when removing unknown entry', async (t) => {
 
 test('should succeed when removing file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  for (const name of ["annar", "3"]) {
-    await t.notThrowsAsync(rootHandle.removeEntry(name));
-  }
+  const fileHandle = await rootHandle.getFileHandle("doomed", {create: true});
+  await t.notThrowsAsync(rootHandle.removeEntry(fileHandle.name));
 })
 
 test('should return error when removing unknown entry recursively', async (t) => {
@@ -236,11 +255,17 @@ test('should return error when removing unknown entry recursively', async (t) =>
   t.is(err?.message, 'Entry "unknown" not found');
 })
 
-test('should succeed when removing recursively (including non-empty directory)', async (t) => {
+test('should succeed when removing recursively non-empty directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  for (const name of ["first", "annar", "3"]) {
-    await t.notThrowsAsync(rootHandle.removeEntry(name, {recursive: true}));
-  }
+  const dirHandle = await rootHandle.getDirectoryHandle("condemned", {create: true});
+  await t.notThrowsAsync(dirHandle.getFileHandle("asylum", {create: true}))
+  await t.notThrowsAsync(rootHandle.removeEntry(dirHandle.name, {recursive: true}));
+})
+
+test('should succeed when removing recursively empty directory', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("terminal", {create: true});
+  await t.notThrowsAsync(rootHandle.removeEntry(dirHandle.name, {recursive: true}));
 })
 
 test('should return null when resolving unknown directory', async (t) => {
