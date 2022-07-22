@@ -2,9 +2,8 @@
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use send_wrapper::SendWrapper;
 use serde_json::{Value, Map};
-use std::{collections::HashMap, sync::{Arc, RwLock}, env, path::Path};
+use std::{env, path::Path};
 use nix::{fcntl::OFlag, sys::stat::Mode};
 use libnfs::Nfs;
 
@@ -136,7 +135,7 @@ impl Generator for JsNfsDirectoryHandleEntries {
 
   type Return = Undefined;
 
-  fn next(&mut self, value: Option<Self::Next>) -> Option<Self::Yield> {
+  fn next(&mut self, _: Option<Self::Next>) -> Option<Self::Yield> {
     if self.entries.len() <= self.count {
       return None;
     }
@@ -166,7 +165,7 @@ impl Generator for JsNfsDirectoryHandleKeys {
 
   type Return = Undefined;
 
-  fn next(&mut self, value: Option<Self::Next>) -> Option<Self::Yield> {
+  fn next(&mut self, _: Option<Self::Next>) -> Option<Self::Yield> {
     if self.entries.len() <= self.count {
       return None;
     }
@@ -191,7 +190,7 @@ impl Generator for JsNfsDirectoryHandleValues {
 
   type Return = Undefined;
 
-  fn next(&mut self, value: Option<Self::Next>) -> Option<Self::Yield> {
+  fn next(&mut self, _: Option<Self::Next>) -> Option<Self::Yield> {
     if self.entries.len() <= self.count {
       return None;
     }
@@ -279,8 +278,8 @@ impl FromNapiValue for JsNfsGetDirectoryOptions {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let create = obj.get(FIELD_CREATE).and_then(|val| Some(val.as_bool().unwrap()));
-    let res = JsNfsGetDirectoryOptions{create: create.unwrap_or_default()};
+    let create = obj.get(FIELD_CREATE).and_then(|val| Some(val.as_bool().unwrap())).unwrap_or_default();
+    let res = JsNfsGetDirectoryOptions{create};
     Ok(res)
   }
 }
@@ -301,8 +300,8 @@ impl FromNapiValue for JsNfsGetFileOptions {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let create = obj.get(FIELD_CREATE).and_then(|val| Some(val.as_bool().unwrap()));
-    let res = JsNfsGetFileOptions{create: create.unwrap_or_default()};
+    let create = obj.get(FIELD_CREATE).and_then(|val| Some(val.as_bool().unwrap())).unwrap_or_default();
+    let res = JsNfsGetFileOptions{create};
     Ok(res)
   }
 }
@@ -323,8 +322,8 @@ impl FromNapiValue for JsNfsRemoveOptions {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let recursive = obj.get(FIELD_RECURSIVE).and_then(|val| Some(val.as_bool().unwrap()));
-    let res = JsNfsRemoveOptions{recursive: recursive.unwrap_or_default()};
+    let recursive = obj.get(FIELD_RECURSIVE).and_then(|val| Some(val.as_bool().unwrap())).unwrap_or_default();
+    let res = JsNfsRemoveOptions{recursive};
     Ok(res)
   }
 }
@@ -345,8 +344,8 @@ impl FromNapiValue for JsNfsCreateWritableOptions {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let keep_existing_data = obj.get(FIELD_KEEP_EXISTING_DATA).and_then(|val| Some(val.as_bool().unwrap()));
-    let res = JsNfsCreateWritableOptions{keep_existing_data: keep_existing_data.unwrap_or_default()};
+    let keep_existing_data = obj.get(FIELD_KEEP_EXISTING_DATA).and_then(|val| Some(val.as_bool().unwrap())).unwrap_or_default();
+    let res = JsNfsCreateWritableOptions{keep_existing_data};
     Ok(res)
   }
 }
@@ -358,19 +357,11 @@ fn should_keep_existing_data(options: Option<JsNfsCreateWritableOptions>) -> boo
   false
 }
 
-type InodeNumber = u64;
-
-struct NfsNode {
-  path: String,
-  ftype: String
-}
-
 #[derive(Clone)]
 #[napi]
 struct JsNfsHandle {
   nfs: Option<Nfs>,
-  table: Option<Arc<RwLock<HashMap<InodeNumber, NfsNode>>>>,
-  root_inode_number: InodeNumber,
+  path: String,
   #[napi(readonly, ts_type="'directory' | 'file'")]
   pub kind: String,
   #[napi(readonly)]
@@ -385,18 +376,9 @@ impl JsNfsHandle {
       let mut nfs = Nfs::new().unwrap();
       let _ = nfs.parse_url_mount(url.as_str()).unwrap();
       let name = "/";
-      let nfs_stat = nfs.stat64(Path::new(name)).unwrap();
-      let wrapped_nfs = nfs;
-      let mut fs_table = HashMap::new();
-      let _ = fs_table.insert(nfs_stat.nfs_ino, NfsNode{path: name.to_string(), ftype: KIND_DIRECTORY.to_string()});
-      let table = Arc::new(RwLock::new(fs_table));
-      return JsNfsHandle{nfs: Some(wrapped_nfs), table: Some(table), root_inode_number: nfs_stat.nfs_ino, kind: KIND_DIRECTORY.to_string(), name: name.to_string()};
+      return JsNfsHandle{nfs: Some(nfs), path: name.to_string(), kind: KIND_DIRECTORY.to_string(), name: name.to_string()};
     }
-    JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_DIRECTORY.to_string(), name: "/".to_string()}
-  }
-
-  pub fn get_path(&self) -> String {
-    self.name.clone() // FIXME
+    JsNfsHandle{nfs: None, path: "/".to_string(), kind: KIND_DIRECTORY.to_string(), name: "/".to_string()}
   }
 
   #[napi]
@@ -442,9 +424,9 @@ impl FromNapiValue for JsNfsHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let kind = obj.get(FIELD_KIND).and_then(|val| Some(val.as_str().unwrap().to_string()));
-    let name = obj.get(FIELD_NAME).and_then(|val| Some(val.as_str().unwrap().to_string()));
-    let res = JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: kind.unwrap_or_default(), name: name.unwrap_or_default()};
+    let kind = obj.get(FIELD_KIND).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or_default();
+    let name = obj.get(FIELD_NAME).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or_default();
+    let res = JsNfsHandle{nfs: None, path: name.clone(), kind: kind.clone(), name: name.clone()};
     Ok(res)
   }
 }
@@ -464,7 +446,7 @@ struct JsNfsDirectoryHandle {
 impl JsNfsDirectoryHandle {
 
   pub fn with_initial_name(name: String) -> Self {
-    JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_DIRECTORY.to_string(), name: name.clone()}.into()
+    JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_DIRECTORY.to_string(), name: name.clone()}.into()
   }
 
   #[napi(constructor)]
@@ -498,7 +480,7 @@ impl JsNfsDirectoryHandle {
     let mut entries: Vec<JsNfsHandle> = Vec::new();
     if let Some(nfs) = &self.handle.nfs {
       let mut my_nfs = nfs.to_owned();
-      let dir = my_nfs.opendir(Path::new(self.name.as_str()))?;
+      let dir = my_nfs.opendir(Path::new(self.handle.path.as_str()))?;
       for entry in dir {
         if let Some(e) = entry.ok() {
           let kind = match e.d_type {
@@ -506,15 +488,20 @@ impl JsNfsDirectoryHandle {
             _ => KIND_FILE.to_string()
           };
           let name = e.path.into_os_string().into_string().unwrap();
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), table: self.handle.table.clone(), root_inode_number: self.handle.root_inode_number, kind, name});
+          let path = if kind == KIND_DIRECTORY.to_string() {
+            format!("{}{}/", self.handle.path.clone(), name.clone())
+          } else {
+            format!("{}{}", self.handle.path.clone(), name.clone())
+          };
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind, name});
         }
       }
     } else {
-      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), table: self.handle.table.clone(), root_inode_number: self.handle.root_inode_number, kind: KIND_FILE.to_string(), name: "3".to_string()});
-      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), table: self.handle.table.clone(), root_inode_number: self.handle.root_inode_number, kind: KIND_FILE.to_string(), name: "annar".to_string()});
-      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), table: self.handle.table.clone(), root_inode_number: self.handle.root_inode_number, kind: KIND_DIRECTORY.to_string(), name: "first".to_string()});
-      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), table: self.handle.table.clone(), root_inode_number: self.handle.root_inode_number, kind: KIND_DIRECTORY.to_string(), name: "..".to_string()});
-      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), table: self.handle.table.clone(), root_inode_number: self.handle.root_inode_number, kind: KIND_DIRECTORY.to_string(), name: ".".to_string()});
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "3".to_string(), kind: KIND_FILE.to_string(), name: "3".to_string()});
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "annar".to_string(), kind: KIND_FILE.to_string(), name: "annar".to_string()});
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "first".to_string(), kind: KIND_DIRECTORY.to_string(), name: "first".to_string()});
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "..".to_string(), kind: KIND_DIRECTORY.to_string(), name: "..".to_string()});
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: ".".to_string(), kind: KIND_DIRECTORY.to_string(), name: ".".to_string()});
     }
     Ok(entries)
   }
@@ -549,12 +536,12 @@ impl JsNfsDirectoryHandle {
     if !create {
       return Err(Error::new(Status::GenericFailure, format!("Directory {:?} not found", name)));
     }
+    let path = format!("{}{}/", self.handle.path.clone(), name.clone());
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
-      let path = format!("{}/{}", self.name.clone(), name.clone()).replace("//", "/");
-      let _ = my_nfs.mkdir(Path::new(path.as_str()))?;
+      let _ = my_nfs.mkdir(Path::new(path.trim_end_matches('/')))?;
     }
-    let res = JsNfsHandle{nfs: self.handle.nfs.clone(), table: self.handle.table.clone(), root_inode_number: self.handle.root_inode_number, kind: KIND_DIRECTORY.to_string(), name: name.clone()};
+    let res = JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_DIRECTORY.to_string(), name: name.clone()};
     Ok(res.into())
   }
 
@@ -570,17 +557,17 @@ impl JsNfsDirectoryHandle {
     if !create {
       return Err(Error::new(Status::GenericFailure, format!("File {:?} not found", name)));
     }
+    let path = format!("{}{}", self.handle.path.clone(), name.clone());
     if let Some(nfs) = &self.handle.nfs {
       let mut my_nfs = nfs.to_owned();
-      let path = format!("{}/{}", self.name.clone(), name.clone()).replace("//", "/");
       let _ = my_nfs.create(Path::new(path.as_str()), OFlag::O_SYNC, Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IWGRP | Mode::S_IRGRP | Mode::S_IROTH | Mode::S_IWOTH)?;
     }
-    let res = JsNfsHandle{nfs: self.handle.nfs.clone(), table: self.handle.table.clone(), root_inode_number: self.handle.root_inode_number, kind: KIND_FILE.to_string(), name: name.clone()};
+    let res = JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_FILE.to_string(), name: name.clone()};
     Ok(res.into())
   }
 
   fn nfs_remove(&self, entry: JsNfsHandle, recursive: bool) -> napi::Result<()> {
-    let path = format!("{}/{}", self.name.clone(), entry.name.clone()).replace("//", "/");
+    let path = entry.path.clone();
     let kind = entry.kind.clone();
     let name = entry.name.clone();
     if let Some(nfs) = &self.handle.nfs {
@@ -592,11 +579,11 @@ impl JsNfsDirectoryHandle {
       if kind == KIND_DIRECTORY.to_string() {
         for subentry in subentries {
           if subentry.name != "." && subentry.name != ".." {
-            self.nfs_remove(JsNfsHandle{nfs: subentry.nfs, table: subentry.table, root_inode_number: subentry.root_inode_number, kind: subentry.kind.clone(), name: format!("{}/{}", path.clone(), subentry.name.clone())}, recursive)?;
+            self.nfs_remove(subentry, recursive)?;
           }
         }
 
-        nfs.rmdir(Path::new(path.as_str()))?;
+        nfs.rmdir(Path::new(path.trim_end_matches('/')))?;
       } else {
         nfs.unlink(Path::new(path.as_str()))?;
       }
@@ -627,11 +614,11 @@ impl JsNfsDirectoryHandle {
   fn nfs_resolve(&self, subentries: Vec<JsNfsHandle>, possible_descendant: JsNfsHandle) -> napi::Result<Vec<String>> {
     for subentry in subentries {
       if subentry.is_same_entry(possible_descendant.clone()).unwrap() {
-        let res = subentry.get_path().split('/').map(str::to_string).collect();
+        let res = subentry.path.trim_matches('/').split('/').map(str::to_string).collect();
         return Ok(res);
       }
 
-      if subentry.nfs.is_some() && subentry.kind == KIND_DIRECTORY {
+      if subentry.nfs.is_some() && subentry.kind == KIND_DIRECTORY && subentry.name != ".".to_string() && subentry.name != "..".to_string() {
         let subdir = JsNfsDirectoryHandle::from(subentry);
         let res = subdir.nfs_resolve(subdir.nfs_entries()?, possible_descendant.clone());
         if res.is_ok() {
@@ -656,10 +643,10 @@ impl FromNapiValue for JsNfsDirectoryHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let kind = obj.get(FIELD_KIND).and_then(|val| Some(val.as_str().unwrap().to_string()));
-    // TODO: check whether kind matches KIND_DIRECTORY and, if not, return error?
-    let name = obj.get(FIELD_NAME).and_then(|val| Some(val.as_str().unwrap().to_string()));
-    let res = JsNfsDirectoryHandle::with_initial_name(name.unwrap_or_default());
+    let _kind = obj.get(FIELD_KIND).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or(KIND_DIRECTORY.to_string());
+    // TODO: check whether _kind matches KIND_DIRECTORY and, if not, return error?
+    let name = obj.get(FIELD_NAME).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or_default();
+    let res = JsNfsDirectoryHandle::with_initial_name(name.clone());
     Ok(res)
   }
 }
@@ -694,7 +681,7 @@ struct JsNfsFileHandle {
 impl JsNfsFileHandle {
 
   pub fn with_initial_name(name: String) -> Self {
-    JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_FILE.to_string(), name: name.clone()}.into()
+    JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()}.into()
   }
 
   #[napi]
@@ -723,7 +710,7 @@ impl JsNfsFileHandle {
   pub async fn get_file(&self) -> napi::Result<JsNfsFile> {
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
-      let nfs_stat = my_nfs.stat64(Path::new(self.handle.get_path().as_str()))?;
+      let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
       let _type = "text/plain".to_string(); // FIXME
       let webkit_relative_path = ".".to_string(); // FIXME
       let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as u32, _type, last_modified: nfs_stat.nfs_mtime as u32, name: self.name.clone(), webkit_relative_path};
@@ -745,10 +732,10 @@ impl FromNapiValue for JsNfsFileHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let kind = obj.get(FIELD_KIND).and_then(|val| Some(val.as_str().unwrap().to_string()));
-    // TODO: check whether kind matches KIND_FILE and, if not, return error?
-    let name = obj.get(FIELD_NAME).and_then(|val| Some(val.as_str().unwrap().to_string()));
-    let res = JsNfsFileHandle::with_initial_name(name.unwrap_or_default());
+    let _kind = obj.get(FIELD_KIND).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or(KIND_FILE.to_string());
+    // TODO: check whether _kind matches KIND_FILE and, if not, return error?
+    let name = obj.get(FIELD_NAME).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or_default();
+    let res = JsNfsFileHandle::with_initial_name(name.clone());
     Ok(res)
   }
 }
@@ -790,7 +777,7 @@ impl JsNfsFile {
 
   pub fn with_initial_name(name: String) -> Self {
     JsNfsFile{
-      handle: JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_FILE.to_string(), name: name.clone()},
+      handle: JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()},
       size: 123,
       _type: "text/plain".to_string(),
       last_modified: 1658159058,
@@ -823,7 +810,7 @@ impl JsNfsFile {
   fn nfs_text(&self) -> napi::Result<String> {
     if let Some(nfs) = &self.handle.nfs {
       let mut my_nfs = nfs.to_owned();
-      let nfs_file = my_nfs.open(Path::new(self.handle.get_path().as_str()), OFlag::O_SYNC)?;
+      let nfs_file = my_nfs.open(Path::new(self.handle.path.as_str()), OFlag::O_SYNC)?;
       let nfs_stat = nfs_file.fstat64()?;
       let buffer = &mut vec![0u8; nfs_stat.nfs_size as usize];
       nfs_file.pread_into(nfs_stat.nfs_size, 0, buffer)?;
