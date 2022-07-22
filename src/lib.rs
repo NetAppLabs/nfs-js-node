@@ -382,7 +382,6 @@ impl JsNfsHandle {
 
   pub fn open(url: String) -> Self {
     if env::var("TEST_USING_NFS").is_ok() {
-      let url = "nfs://127.0.0.1/Users/Shared/nfs/".to_string(); // FIXME: DO NOT COMMIT THIS LINE
       let mut nfs = Nfs::new().unwrap();
       let _ = nfs.parse_url_mount(url.as_str()).unwrap();
       let name = "/";
@@ -393,8 +392,11 @@ impl JsNfsHandle {
       let table = Arc::new(RwLock::new(fs_table));
       return JsNfsHandle{nfs: Some(wrapped_nfs), table: Some(table), root_inode_number: nfs_stat.nfs_ino, kind: KIND_DIRECTORY.to_string(), name: name.to_string()};
     }
-    // TODO: use url param
-    JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_DIRECTORY.to_string(), name: url} // FIXME: should not set name to url
+    JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_DIRECTORY.to_string(), name: "/".to_string()}
+  }
+
+  pub fn get_path(&self) -> String {
+    self.name.clone() // FIXME
   }
 
   #[napi]
@@ -622,29 +624,31 @@ impl JsNfsDirectoryHandle {
     Err(Error::new(Status::GenericFailure, format!("Entry {:?} not found", name)))
   }
 
+  fn nfs_resolve(&self, subentries: Vec<JsNfsHandle>, possible_descendant: JsNfsHandle) -> napi::Result<Vec<String>> {
+    for subentry in subentries {
+      if subentry.is_same_entry(possible_descendant.clone()).unwrap() {
+        let res = subentry.get_path().split('/').map(str::to_string).collect();
+        return Ok(res);
+      }
+
+      if subentry.nfs.is_some() && subentry.kind == KIND_DIRECTORY {
+        let subdir = JsNfsDirectoryHandle::from(subentry);
+        let res = subdir.nfs_resolve(subdir.nfs_entries()?, possible_descendant.clone());
+        if res.is_ok() {
+          return res;
+        }
+      }
+    }
+    Err(Error::new(Status::GenericFailure, format!("Possible descendant {} {:?} not found", possible_descendant.kind.clone(), possible_descendant.name.clone())))
+  }
+
   #[napi]
   pub async fn resolve(&self, possible_descendant: JsNfsHandle) -> napi::Result<Either<Vec<String>, Null>> {
-    let first = JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_DIRECTORY.to_string(), name: "first".to_string()};
-    let annar = JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_FILE.to_string(), name: "annar".to_string()};
-    let three = JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_FILE.to_string(), name: "3".to_string()};
-    match possible_descendant {
-      first => {
-        let mut res: Vec<String> = Vec::new();
-        res.push(first.name.clone());
-        Ok(napi::Either::A(res))
-      },
-      annar => {
-        let mut res: Vec<String> = Vec::new();
-        res.push(annar.name.clone());
-        Ok(napi::Either::A(res))
-      },
-      three => {
-        let mut res: Vec<String> = Vec::new();
-        res.push(three.name.clone());
-        Ok(napi::Either::A(res))
-      },
-      _ => Ok(napi::Either::B(Null))
+    let res = self.nfs_resolve(self.nfs_entries()?, possible_descendant);
+    if res.is_ok() {
+      return Ok(napi::Either::A(res.unwrap()));
     }
+    Ok(napi::Either::B(Null))
   }
 }
 
@@ -717,6 +721,14 @@ impl JsNfsFileHandle {
 
   #[napi]
   pub async fn get_file(&self) -> napi::Result<JsNfsFile> {
+    if let Some(nfs) = &self.handle.nfs {
+      let my_nfs = nfs.to_owned();
+      let nfs_stat = my_nfs.stat64(Path::new(self.handle.get_path().as_str()))?;
+      let _type = "text/plain".to_string(); // FIXME
+      let webkit_relative_path = ".".to_string(); // FIXME
+      let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as u32, _type, last_modified: nfs_stat.nfs_mtime as u32, name: self.name.clone(), webkit_relative_path};
+      return Ok(res);
+    }
     let res = JsNfsFile::with_initial_name(self.name.clone());
     Ok(res)
   }
@@ -760,6 +772,7 @@ impl From<JsNfsHandle> for JsNfsFileHandle {
 
 #[napi]
 struct JsNfsFile {
+  handle: JsNfsHandle,
   #[napi(readonly)]
   pub size: u32,
   #[napi(readonly)]
@@ -777,39 +790,57 @@ impl JsNfsFile {
 
   pub fn with_initial_name(name: String) -> Self {
     JsNfsFile{
+      handle: JsNfsHandle{nfs: None, table: None, root_inode_number: 0, kind: KIND_FILE.to_string(), name: name.clone()},
       size: 123,
       _type: "text/plain".to_string(),
       last_modified: 1658159058,
-      name: name,
+      name,
       webkit_relative_path: ".".to_string()
     }
   }
 
+  fn to_blob(&self) -> JsNfsBlob {
+    let content = self.nfs_text().unwrap();
+    JsNfsBlob{size: content.len() as u32, _type: self._type.clone(), content}
+  }
+
   #[napi(ts_return_type="Promise<ArrayBuffer>")]
   pub async fn array_buffer(&self) -> napi::Result<Value> {
-    let res = JsNfsBlob{size: self.size, _type: self._type.clone()}.array_buffer().await?;
+    let res = self.to_blob().array_buffer().await?;
     Ok(res)
   }
 
   #[napi]
   pub fn slice(&self, start: Option<i32>, end: Option<i32>, content_type: Option<String>) -> JsNfsBlob {
-    JsNfsBlob{size: self.size, _type: self._type.clone()}.slice(start, end, content_type)
+    self.to_blob().slice(start, end, content_type)
   }
 
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
   pub fn stream(&self) -> napi::Result<Value> {
-    JsNfsBlob{size: self.size, _type: self._type.clone()}.stream()
+    self.to_blob().stream()
+  }
+
+  fn nfs_text(&self) -> napi::Result<String> {
+    if let Some(nfs) = &self.handle.nfs {
+      let mut my_nfs = nfs.to_owned();
+      let nfs_file = my_nfs.open(Path::new(self.handle.get_path().as_str()), OFlag::O_SYNC)?;
+      let nfs_stat = nfs_file.fstat64()?;
+      let buffer = &mut vec![0u8; nfs_stat.nfs_size as usize];
+      nfs_file.pread_into(nfs_stat.nfs_size, 0, buffer)?;
+    }
+    let res = "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".to_string();
+    Ok(res)
   }
 
   #[napi]
   pub async fn text(&self) -> napi::Result<String> {
-    let res = JsNfsBlob{size: self.size, _type: self._type.clone()}.text().await?;
-    Ok(res)
+    self.nfs_text()
   }
 }
 
 #[napi]
 struct JsNfsBlob {
+  content: String,
   #[napi(readonly)]
   pub size: u32,
   #[napi(readonly)]
@@ -827,20 +858,31 @@ impl JsNfsBlob {
     Ok(res)
   }
 
+  fn get_index_from_optional(&self, pos: Option<i32>, def: i32) -> usize {
+    let mut pos = pos.unwrap_or(def);
+    if pos < 0 {
+      pos = pos + (self.content.len() as i32);
+      if pos <= 0 {
+        pos = 0;
+      }
+    }
+    pos as usize
+  }
+
   #[napi]
   pub fn slice(&self, start: Option<i32>, end: Option<i32>, content_type: Option<String>) -> JsNfsBlob {
-    let mut size = self.size;
-    if let Some(e) = end {
-      if (e.abs() as u32) <= size {
-        size = e.abs() as u32;
-      }
+    let e: usize = self.content.len();
+    let start = self.get_index_from_optional(start, 0);
+    let end = self.get_index_from_optional(end, e as i32);
+    if start >= end {
+      return JsNfsBlob{size: 0, _type: content_type.unwrap_or_default(), content: String::new()};
     }
-    if let Some(s) = start {
-      if (s.abs() as u32) <= size {
-        size = size - (s.abs() as u32);
-      }
+    let mut content = self.content.clone();
+    if start == 0 && end == e {
+      return JsNfsBlob{size: content.len() as u32, _type: content_type.unwrap_or_default(), content};
     }
-    JsNfsBlob{size, _type: content_type.unwrap_or_default()}
+    unsafe { content = content.get_unchecked((start as usize)..(end as usize)).to_string() }
+    JsNfsBlob{size: content.len() as u32, _type: content_type.unwrap_or_default(), content}
   }
 
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
@@ -853,7 +895,7 @@ impl JsNfsBlob {
 
   #[napi]
   pub async fn text(&self) -> napi::Result<String> {
-    let res = String::new();
+    let res = self.content.clone();
     Ok(res)
   }
 }

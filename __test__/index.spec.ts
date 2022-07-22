@@ -2,7 +2,7 @@ import test from 'ava'
 
 import { JsNfsDirectoryHandle } from '../index'
 
-const nfsURL = "nfs://1.2.3.4/export?vers=3";
+const nfsURL = "nfs://127.0.0.1/Users/Shared/nfs/";
 
 test('should convert directory handle to handle', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
@@ -271,15 +271,13 @@ test('should succeed when removing recursively empty directory', async (t) => {
 test('should return null when resolving unknown directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const resolved = await rootHandle.resolve({kind: "directory", name: "unknown"});
-  t.deepEqual(resolved, ["unknown"]); // FIXME: should be getting `null` returned but somehow getting array containing directory handle name
-  // t.deepEqual(resolved, null);
+  t.deepEqual(resolved, null);
 })
 
 test('should return null when resolving unknown file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const resolved = await rootHandle.resolve({kind: "file", name: "unknown"});
-  t.deepEqual(resolved, ["unknown"]); // FIXME: should be getting `null` returned but somehow getting array containing file handle name
-  // t.deepEqual(resolved, null);
+  t.deepEqual(resolved, null);
 })
 
 test('should return non-null when resolving known directory', async (t) => {
@@ -304,7 +302,7 @@ test('should return file for file handle', async (t) => {
   t.is(file.type, "text/plain");
   t.is(file.webkitRelativePath, ".");
   t.is(file.size, 123);
-  t.is(file.lastModified, 1658159058);
+  t.true(file.lastModified >= 1658159058);
 })
 
 test('should return array buffer for file', async (t) => {
@@ -346,7 +344,7 @@ test('should return text for file', async (t) => {
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
   const text = await file.text();
-  t.is(text, "");
+  t.is(text, "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
 test('should return text for blob', async (t) => {
@@ -355,7 +353,7 @@ test('should return text for blob', async (t) => {
   const file = await fileHandle.getFile();
   const blob = file.slice();
   const text = await blob.text();
-  t.is(text, "");
+  t.is(text, "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
 test('should return blob when slicing file', async (t) => {
@@ -365,9 +363,13 @@ test('should return blob when slicing file', async (t) => {
   const blob = file.slice();
   t.is(blob.size, file.size);
   t.is(blob.type, "");
-  const blobby = file.slice(10, 120, "text/plain");
-  t.is(blobby.size, 110);
+  const text = await blob.text();
+  t.is(text, "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
+  const blobby = file.slice(12, 65, "text/plain");
+  t.is(blobby.size, 53);
   t.is(blobby.type, "text/plain");
+  const texty = await blobby.text();
+  t.is(texty, "make sure that this file is exactly 123 bytes in size");
 })
 
 test('should return blob when slicing blob', async (t) => {
@@ -377,9 +379,13 @@ test('should return blob when slicing blob', async (t) => {
   const blob = file.slice(undefined, undefined, "text/plain");
   t.is(blob.size, file.size);
   t.is(blob.type, "text/plain");
-  const blobby = blob.slice(-200, -10, "text/vanilla");
-  t.is(blobby.size, 10);
+  const text = await blob.text();
+  t.is(text, "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
+  const blobby = blob.slice(-200, -107, "text/vanilla");
+  t.is(blobby.size, 16);
   t.is(blobby.type, "text/vanilla");
+  const texty = await blobby.text();
+  t.is(texty, "In order to make");
 })
 
 test('should return non-locked writable when creating writable and not keeping existing data', async (t) => {
