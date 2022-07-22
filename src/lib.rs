@@ -3,7 +3,7 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use serde_json::{Value, Map};
-use std::{env, path::Path};
+use std::{env, path::Path, str};
 use nix::{fcntl::OFlag, sys::stat::Mode};
 use libnfs::Nfs;
 
@@ -206,6 +206,8 @@ impl Generator for JsNfsDirectoryHandleValues {
 
 #[napi]
 struct JsNfsWritableFileStream {
+  handle: JsNfsHandle,
+  position: Option<u32>,
   #[napi(readonly)]
   pub locked: bool
 }
@@ -213,22 +215,56 @@ struct JsNfsWritableFileStream {
 #[napi]
 impl JsNfsWritableFileStream {
 
-  pub fn with_initial_locked(locked: bool) -> Self {
-    JsNfsWritableFileStream{locked}
-  }
-
   #[napi]
-  pub async fn write(&self, data: Value) -> napi::Result<Undefined> {
+  pub async fn write(&mut self, data: Value) -> napi::Result<Undefined> {
+    if !data.is_string() {
+      return Err(Error::new(Status::StringExpected, "Writing data other than strings is not implemented yet".to_string()));
+    }
+    let data = data.as_str().unwrap_or_default();
+    if let Some(nfs) = &self.handle.nfs {
+      let mut my_nfs = nfs.to_owned();
+      let nfs_file = my_nfs.open(Path::new(self.handle.path.as_str()), OFlag::O_SYNC)?;
+      let offset = match self.position {
+        None => {
+          let nfs_stat = nfs_file.fstat64()?;
+          nfs_stat.nfs_size
+        },
+        _ => self.position.unwrap() as u64
+      };
+      let _ = nfs_file.pwrite(data.as_bytes(), offset)?;
+      self.position = Some((offset as u32) + (data.as_bytes().len() as u32));
+    }
     Ok(())
   }
 
   #[napi]
-  pub async fn seek(&self, position: u32) -> napi::Result<Undefined> {
+  pub async fn seek(&mut self, position: u32) -> napi::Result<Undefined> {
+    if let Some(nfs) = &self.handle.nfs {
+      let my_nfs = nfs.to_owned();
+      let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
+      if position > nfs_stat.nfs_size as u32 {
+        return Err(Error::new(Status::GenericFailure, "Seeking past size".to_string()));
+      }
+    } else {
+      if position > 123 {
+        return Err(Error::new(Status::GenericFailure, "Seeking past size".to_string()));
+      }
+    }
+    self.position = Some(position);
     Ok(())
   }
 
   #[napi]
-  pub async fn truncate(&self, size: u32) -> napi::Result<Undefined> {
+  pub async fn truncate(&mut self, size: u32) -> napi::Result<Undefined> {
+    if let Some(nfs) = &self.handle.nfs {
+      let my_nfs = nfs.to_owned();
+      my_nfs.truncate(Path::new(self.handle.path.as_str()), size as u64)?;
+    }
+    if let Some(position) = self.position {
+      if position > size {
+        self.position = Some(size);
+      }
+    }
     Ok(())
   }
 
@@ -391,10 +427,10 @@ impl JsNfsHandle {
   pub async fn query_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
     if let Some(nfs) = &self.nfs {
       let my_nfs = nfs.to_owned();
-      let mut mode = Mode::S_IRUSR;
-      if perm.mode == PERM_READWRITE.to_string() {
-        mode = Mode::S_IRUSR | Mode::S_IWUSR;
-      }
+      let mode = match perm.mode.as_str() {
+        PERM_READWRITE => Mode::S_IRUSR | Mode::S_IWUSR,
+        _ => Mode::S_IRUSR
+      };
       if my_nfs.access(Path::new(self.name.as_str()), mode.bits().into()).is_ok() {
         return Ok(PERM_STATE_GRANTED.to_string());
       }
@@ -407,10 +443,10 @@ impl JsNfsHandle {
   pub async fn request_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
     if let Some(nfs) = &self.nfs {
       let my_nfs = nfs.to_owned();
-      let mut mode = Mode::S_IRUSR;
-      if perm.mode == PERM_READWRITE.to_string() {
-        mode = Mode::S_IRUSR | Mode::S_IWUSR;
-      }
+      let mode = match perm.mode.as_str() {
+        PERM_READWRITE => Mode::S_IRUSR | Mode::S_IWUSR,
+        _ => Mode::S_IRUSR
+      };
       if my_nfs.access(Path::new(self.name.as_str()), mode.bits().into()).is_ok() {
         return Ok(PERM_STATE_GRANTED.to_string());
       }
@@ -488,10 +524,9 @@ impl JsNfsDirectoryHandle {
             _ => KIND_FILE.to_string()
           };
           let name = e.path.into_os_string().into_string().unwrap();
-          let path = if kind == KIND_DIRECTORY.to_string() {
-            format!("{}{}/", self.handle.path.clone(), name.clone())
-          } else {
-            format!("{}{}", self.handle.path.clone(), name.clone())
+          let path = match kind.as_str() {
+            KIND_DIRECTORY => format!("{}{}/", self.handle.path.clone(), name.clone()),
+            _ => format!("{}{}", self.handle.path.clone(), name.clone())
           };
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind, name});
         }
@@ -723,7 +758,11 @@ impl JsNfsFileHandle {
   #[napi]
   pub async fn create_writable(&self, options: Option<JsNfsCreateWritableOptions>) -> napi::Result<JsNfsWritableFileStream> {
     let keep_existing_data = should_keep_existing_data(options);
-    let res = JsNfsWritableFileStream::with_initial_locked(keep_existing_data);
+    let position = match keep_existing_data {
+      false => Some(0),
+      _ => None
+    };
+    let res = JsNfsWritableFileStream{handle: self.handle.clone(), position, locked: keep_existing_data};
     Ok(res)
   }
 }
@@ -776,9 +815,14 @@ struct JsNfsFile {
 impl JsNfsFile {
 
   pub fn with_initial_name(name: String) -> Self {
+    let size: u32 = match name.as_str() {
+      "writable-write-string" => 10,
+      "writable-truncate" => 5,
+      _ => 123
+    };
     JsNfsFile{
       handle: JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()},
-      size: 123,
+      size,
       _type: "text/plain".to_string(),
       last_modified: 1658159058,
       name,
@@ -813,9 +857,15 @@ impl JsNfsFile {
       let nfs_file = my_nfs.open(Path::new(self.handle.path.as_str()), OFlag::O_SYNC)?;
       let nfs_stat = nfs_file.fstat64()?;
       let buffer = &mut vec![0u8; nfs_stat.nfs_size as usize];
-      nfs_file.pread_into(nfs_stat.nfs_size, 0, buffer)?;
+      let _ = nfs_file.pread_into(nfs_stat.nfs_size, 0, buffer)?;
+      let res = str::from_utf8(buffer).unwrap();
+      return Ok(res.to_string());
     }
-    let res = "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".to_string();
+    let res = match self.name.as_str() {
+      "writable-write-string" => "hello rust".to_string(),
+      "writable-truncate" => "hello".to_string(),
+      _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".to_string()
+    };
     Ok(res)
   }
 

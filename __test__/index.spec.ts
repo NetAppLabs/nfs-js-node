@@ -390,60 +390,78 @@ test('should return blob when slicing blob', async (t) => {
 
 test('should return non-locked writable when creating writable and not keeping existing data', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("annar");
+  const fileHandle = await rootHandle.getFileHandle("writable-unlocked", {create: true});
   const writable = await fileHandle.createWritable();
   t.false(writable.locked)
+  await rootHandle.removeEntry(fileHandle.name);
 })
 
 test('should return locked writable when creating writable and keeping existing data', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("annar");
+  const fileHandle = await rootHandle.getFileHandle("writable-locked", {create: true});
   const writable = await fileHandle.createWritable({keepExistingData: true});
   t.true(writable.locked)
+  await rootHandle.removeEntry(fileHandle.name);
 })
 
 test('should succeed when writing string', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("annar");
-  const writable = await fileHandle.createWritable({keepExistingData: true});
+  const fileHandle = await rootHandle.getFileHandle("writable-write-string", {create: true});
+  const writable = await fileHandle.createWritable();
   await t.notThrowsAsync(writable.write("hello rust"));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 10);
+  const text = await file.text();
+  t.is(text, "hello rust");
+  await rootHandle.removeEntry(fileHandle.name);
 })
 
 test('should succeed when seeking position', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("annar");
-  const writable = await fileHandle.createWritable({keepExistingData: true});
-  await t.notThrowsAsync(writable.seek(7));
+  const fileHandle = await rootHandle.getFileHandle("writable-seek", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.seek(6));
+  await rootHandle.removeEntry(fileHandle.name);
 })
 
 test('should succeed when truncating size', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("annar");
-  const writable = await fileHandle.createWritable({keepExistingData: true});
-  await t.notThrowsAsync(writable.truncate(120));
+  const fileHandle = await rootHandle.getFileHandle("writable-truncate", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.truncate(5));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 5);
+  const text = await file.text();
+  t.is(text, "hello");
+  await rootHandle.removeEntry(fileHandle.name);
 })
 
 test('should succeed when closing writable file stream', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("annar");
-  const writable = await fileHandle.createWritable({keepExistingData: true});
+  const fileHandle = await rootHandle.getFileHandle("writable-close", {create: true});
+  const writable = await fileHandle.createWritable();
   await t.notThrowsAsync(writable.close());
+  await rootHandle.removeEntry(fileHandle.name);
 })
 
 test('should succeed when aborting writable file stream', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("annar");
-  const writable = await fileHandle.createWritable({keepExistingData: true});
+  const fileHandle = await rootHandle.getFileHandle("writable-abort", {create: true});
+  const writable = await fileHandle.createWritable();
   const reason = await writable.abort("I've got my reasons");
   t.is(reason, "I've got my reasons");
+  await rootHandle.removeEntry(fileHandle.name);
 })
 
 test('should return writer for writable file stream', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("annar");
-  const writable = await fileHandle.createWritable({keepExistingData: true});
+  const fileHandle = await rootHandle.getFileHandle("writable-writer", {create: true});
+  const writable = await fileHandle.createWritable();
   const writer = writable.getWriter();
   t.true(writer.ready);
   t.false(writer.closed);
   t.is(writer.desiredSize, 123);
+  await rootHandle.removeEntry(fileHandle.name);
 })
