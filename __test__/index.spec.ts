@@ -6,10 +6,11 @@ const nfsURL = "nfs://127.0.0.1/Users/Shared/nfs/";
 
 test('should convert directory handle to handle', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const handle = rootHandle.toHandle();
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const handle = dirHandle.toHandle();
   t.is(handle.kind, "directory");
-  t.is(handle.kind, rootHandle.kind);
-  t.is(handle.name, rootHandle.name);
+  t.is(handle.kind, dirHandle.kind);
+  t.is(handle.name, dirHandle.name);
 })
 
 test('should convert file handle to handle', async (t) => {
@@ -23,44 +24,67 @@ test('should convert file handle to handle', async (t) => {
 
 test('should be same entry as self for directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const handle = rootHandle.toHandle();
-  t.true(rootHandle.isSameEntry({kind: handle.kind, name: handle.name})); // FIXME: despite VS Code's "compiler errors", this works -- while below does not work (fails assertion)
-  // t.true(rootHandle.isSameEntry(handle));
-  t.true(handle.isSameEntry({kind: rootHandle.kind, name: rootHandle.name})); // FIXME: despite VS Code's "compiler errors", this works -- while below does not work (fails assertion)
-  // t.true(handle.isSameEntry(rootHandle));
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const handle = dirHandle.toHandle();
+  t.true(dirHandle.isSameEntry(handle));
+  t.true(handle.isSameEntry(dirHandle));
+})
+
+test('should not be same entry as others for directory', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("annar");
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const handle = dirHandle.toHandle();
+  t.false(fileHandle.isSameEntry(handle));
+  t.false(rootHandle.isSameEntry(handle));
+  t.false(handle.isSameEntry(fileHandle));
+  t.false(handle.isSameEntry(rootHandle));
 })
 
 test('should be same entry as self for file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const handle = fileHandle.toHandle();
-  t.true(fileHandle.isSameEntry({kind: handle.kind, name: handle.name})); // FIXME: despite VS Code's "compiler errors", this works -- while below does not work (fails assertion)
-  // t.true(fileHandle.isSameEntry(handle));
-  t.true(handle.isSameEntry({kind: fileHandle.kind, name: fileHandle.name})); // FIXME: despite VS Code's "compiler errors", this works -- while below does not work (fails assertion)
-  // t.true(handle.isSameEntry(fileHandle));
+  t.true(fileHandle.isSameEntry(handle));
+  t.true(handle.isSameEntry(fileHandle));
+})
+
+test('should not be same entry as others for file', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("annar");
+  const fileHandle2 = await rootHandle.getFileHandle("3");
+  const handle = fileHandle2.toHandle();
+  t.false(fileHandle.isSameEntry(handle));
+  t.false(rootHandle.isSameEntry(handle));
+  t.false(handle.isSameEntry(fileHandle));
+  t.false(handle.isSameEntry(rootHandle));
 })
 
 test('should be granted read permission when querying on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const perm = await rootHandle.queryPermission({mode: "read"});
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const perm = await dirHandle.queryPermission({mode: "read"});
   t.is(perm, "granted");
 })
 
 test('should be granted readwrite permission when querying on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const perm = await rootHandle.queryPermission({mode: "readwrite"});
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const perm = await dirHandle.queryPermission({mode: "readwrite"});
   t.is(perm, "granted");
 })
 
 test('should be granted read permission when requesting on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const perm = await rootHandle.requestPermission({mode: "read"});
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const perm = await dirHandle.requestPermission({mode: "read"});
   t.is(perm, "granted");
 })
 
 test('should be granted readwrite permission when requesting on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const perm = await rootHandle.requestPermission({mode: "readwrite"});
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const perm = await dirHandle.requestPermission({mode: "readwrite"});
   t.is(perm, "granted");
 })
 
@@ -390,29 +414,69 @@ test('should return blob when slicing blob', async (t) => {
 
 test('should return non-locked writable when creating writable and not keeping existing data', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("writable-unlocked", {create: true});
+  const fileHandle = await rootHandle.getFileHandle("writable-overwrite", {create: true});
   const writable = await fileHandle.createWritable();
   t.false(writable.locked)
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return locked writable when creating writable and keeping existing data', async (t) => {
+test('should return non-locked writable when creating writable and keeping existing data', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("writable-locked", {create: true});
+  const fileHandle = await rootHandle.getFileHandle("writable-append", {create: true});
   const writable = await fileHandle.createWritable({keepExistingData: true});
-  t.true(writable.locked)
+  t.false(writable.locked)
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing string', async (t) => {
+test('should succeed when not keeping existing data and writing string', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string", {create: true});
   const writable = await fileHandle.createWritable();
-  await t.notThrowsAsync(writable.write("hello rust"));
+  await t.notThrowsAsync(writable.write("howdy")); // FIXME: original data kept short because writable does not truncate automatically -- should it?
+  const overwritable = await fileHandle.createWritable();
+  await t.notThrowsAsync(overwritable.write("hello rust"));
   const file = await fileHandle.getFile();
   t.is(file.size, 10);
   const text = await file.text();
   t.is(text, "hello rust");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when keeping existing data and writing string', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-append-string", {create: true});
+  const writable = await fileHandle.createWritable();
+  await t.notThrowsAsync(writable.write("salutations"));
+  const appendable = await fileHandle.createWritable({keepExistingData: true});
+  await t.notThrowsAsync(appendable.write(" from javascript"));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 27);
+  const text = await file.text();
+  t.is(text, "salutations from javascript");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when writing string multiple times', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-strings", {create: true});
+  const writable = await fileHandle.createWritable();
+  await t.notThrowsAsync(writable.write("hello rust,"));
+  await t.notThrowsAsync(writable.write(" how are you"));
+  await t.notThrowsAsync(writable.write(" on this fine day?"));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 41);
+  const text = await file.text();
+  t.is(text, "hello rust, how are you on this fine day?");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should return error when seeking past size of file', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-seek-past-size", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  let err = await t.throwsAsync(writable.seek(600));
+  t.is(err?.message, "Seeking past size");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -422,6 +486,20 @@ test('should succeed when seeking position', async (t) => {
   const writable = await fileHandle.createWritable();
   await writable.write("hello rust");
   await t.notThrowsAsync(writable.seek(6));
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when writing string after seek', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-seek", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.seek(6));
+  await writable.write("there");
+  const file = await fileHandle.getFile();
+  t.is(file.size, 11);
+  const text = await file.text();
+  t.is(text, "hello there");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -435,6 +513,20 @@ test('should succeed when truncating size', async (t) => {
   t.is(file.size, 5);
   const text = await file.text();
   t.is(text, "hello");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when writing string after truncating size', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-truncate", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.truncate(4));
+  await writable.write("bound troublemaker");
+  const file = await fileHandle.getFile();
+  t.is(file.size, 22);
+  const text = await file.text();
+  t.is(text, "hellbound troublemaker");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -459,9 +551,24 @@ test('should return writer for writable file stream', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-writer", {create: true});
   const writable = await fileHandle.createWritable();
+  t.false(writable.locked);
   const writer = writable.getWriter();
+  t.true(writable.locked);
   t.true(writer.ready);
   t.false(writer.closed);
   t.is(writer.desiredSize, 123);
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should return error when getting writer for locked writable file stream', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-writer-locked", {create: true});
+  const writable = await fileHandle.createWritable();
+  t.false(writable.locked);
+  const writer = writable.getWriter();
+  t.true(writable.locked);
+  t.false(writer.closed);
+  const err = t.throws(function() { writable.getWriter(); });
+  t.is(err?.message, 'Writable file stream locked by another writer');
   await rootHandle.removeEntry(fileHandle.name);
 })

@@ -107,6 +107,7 @@ interface Blob {
 
 const FIELD_KIND: &str = "kind";
 const FIELD_NAME: &str = "name";
+const FIELD_MODE: &str = "mode";
 const FIELD_CREATE: &str = "create";
 const FIELD_RECURSIVE: &str = "recursive";
 const FIELD_KEEP_EXISTING_DATA: &str = "keepExistingData";
@@ -114,12 +115,12 @@ const FIELD_KEEP_EXISTING_DATA: &str = "keepExistingData";
 const KIND_FILE: &str = "file";
 const KIND_DIRECTORY: &str = "directory";
 
-const PERM_READ: &str = "read";
+const _PERM_READ: &str = "read";
 const PERM_READWRITE: &str = "readwrite";
 
 const PERM_STATE_GRANTED: &str = "granted";
 const PERM_STATE_DENIED: &str = "denied";
-const PERM_STATE_PROMPT: &str = "prompt";
+const _PERM_STATE_PROMPT: &str = "prompt";
 
 #[napi(iterator)]
 struct JsNfsDirectoryHandleEntries {
@@ -279,12 +280,16 @@ impl JsNfsWritableFileStream {
   }
 
   #[napi(ts_return_type="WritableStreamDefaultWriter")]
-  pub fn get_writer(&self) -> napi::Result<Value> {
+  pub fn get_writer(&mut self) -> napi::Result<Value> {
+    if self.locked {
+      return Err(Error::new(Status::GenericFailure, "Writable file stream locked by another writer".to_string()));
+    }
     let mut obj: Map<String, Value> = Map::new();
     let _ = obj.insert("ready".to_string(), true.into());
     let _ = obj.insert("closed".to_string(), false.into());
     let _ = obj.insert("desiredSize".to_string(), 123.into());
     let res = Value::Object(obj);
+    self.locked = true;
     Ok(res)
   }
 }
@@ -299,7 +304,7 @@ impl FromNapiValue for JsNfsHandlePermissionDescriptor {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let mode = obj["mode"].as_str().unwrap().to_string();
+    let mode = obj[FIELD_MODE].as_str().unwrap().to_string();
     let res = JsNfsHandlePermissionDescriptor{mode};
     Ok(res)
   }
@@ -417,9 +422,13 @@ impl JsNfsHandle {
     JsNfsHandle{nfs: None, path: "/".to_string(), kind: KIND_DIRECTORY.to_string(), name: "/".to_string()}
   }
 
+  fn is_same(&self, other: JsNfsHandle) -> bool {
+    other.kind == self.kind && other.name == self.name
+  }
+
   #[napi]
-  pub fn is_same_entry(&self, other: JsNfsHandle) -> napi::Result<bool> {
-    let res = other.kind == self.kind && other.name == self.name;
+  pub fn is_same_entry(&self, #[napi(ts_arg_type="JsNfsHandle")] other: Object) -> napi::Result<bool> {
+    let res = self.is_same(other.into());
     Ok(res)
   }
 
@@ -467,6 +476,15 @@ impl FromNapiValue for JsNfsHandle {
   }
 }
 
+impl From<Object> for JsNfsHandle {
+
+  fn from(obj: Object) -> Self {
+    let kind = obj.get::<&str, &str>(FIELD_KIND).unwrap().unwrap_or_default().to_string();
+    let name = obj.get::<&str, &str>(FIELD_NAME).unwrap().unwrap_or_default().to_string();
+    JsNfsHandle{nfs: None, path: name.clone(), kind: kind.clone(), name: name.clone()}
+  }
+}
+
 #[napi]
 struct JsNfsDirectoryHandle {
   handle: JsNfsHandle,
@@ -491,12 +509,12 @@ impl JsNfsDirectoryHandle {
   }
 
   #[napi]
-  pub fn to_handle(&self) -> JsNfsHandle {
-    self.handle.clone()
+  pub fn to_handle(&self) -> napi::Result<JsNfsHandle> {
+    Ok(self.handle.clone())
   }
 
   #[napi]
-  pub fn is_same_entry(&self, other: JsNfsHandle) -> napi::Result<bool> {
+  pub fn is_same_entry(&self, #[napi(ts_arg_type="JsNfsHandle")] other: Object) -> napi::Result<bool> {
     self.handle.is_same_entry(other)
   }
 
@@ -606,7 +624,10 @@ impl JsNfsDirectoryHandle {
     let kind = entry.kind.clone();
     let name = entry.name.clone();
     if let Some(nfs) = &self.handle.nfs {
-      let subentries = JsNfsDirectoryHandle::from(entry).nfs_entries()?;
+      let subentries = match kind.as_str() {
+        KIND_DIRECTORY => JsNfsDirectoryHandle::from(entry).nfs_entries()?,
+        _ => Vec::new(),
+      };
       if kind == KIND_DIRECTORY.to_string() && !recursive && subentries.len() > 2 {
         return Err(Error::new(Status::GenericFailure, format!("Directory {:?} is not empty", name)));
       }
@@ -648,7 +669,7 @@ impl JsNfsDirectoryHandle {
 
   fn nfs_resolve(&self, subentries: Vec<JsNfsHandle>, possible_descendant: JsNfsHandle) -> napi::Result<Vec<String>> {
     for subentry in subentries {
-      if subentry.is_same_entry(possible_descendant.clone()).unwrap() {
+      if subentry.is_same(possible_descendant.clone()) {
         let res = subentry.path.trim_matches('/').split('/').map(str::to_string).collect();
         return Ok(res);
       }
@@ -720,12 +741,12 @@ impl JsNfsFileHandle {
   }
 
   #[napi]
-  pub fn to_handle(&self) -> JsNfsHandle {
-    self.handle.clone()
+  pub fn to_handle(&self) -> napi::Result<JsNfsHandle> {
+    Ok(self.handle.clone())
   }
 
   #[napi]
-  pub fn is_same_entry(&self, other: JsNfsHandle) -> napi::Result<bool> {
+  pub fn is_same_entry(&self, #[napi(ts_arg_type="JsNfsHandle")] other: Object) -> napi::Result<bool> {
     self.handle.is_same_entry(other)
   }
 
@@ -762,7 +783,7 @@ impl JsNfsFileHandle {
       false => Some(0),
       _ => None
     };
-    let res = JsNfsWritableFileStream{handle: self.handle.clone(), position, locked: keep_existing_data};
+    let res = JsNfsWritableFileStream{handle: self.handle.clone(), position, locked: false};
     Ok(res)
   }
 }
@@ -816,6 +837,10 @@ impl JsNfsFile {
 
   pub fn with_initial_name(name: String) -> Self {
     let size: u32 = match name.as_str() {
+      "writable-write-string-after-truncate" => 22,
+      "writable-write-string-after-seek" => 11,
+      "writable-append-string" => 27,
+      "writable-write-strings" => 41,
       "writable-write-string" => 10,
       "writable-truncate" => 5,
       _ => 123
@@ -842,7 +867,7 @@ impl JsNfsFile {
   }
 
   #[napi]
-  pub fn slice(&self, start: Option<i32>, end: Option<i32>, content_type: Option<String>) -> JsNfsBlob {
+  pub fn slice(&self, start: Option<i32>, end: Option<i32>, content_type: Option<String>) -> napi::Result<JsNfsBlob> {
     self.to_blob().slice(start, end, content_type)
   }
 
@@ -862,6 +887,10 @@ impl JsNfsFile {
       return Ok(res.to_string());
     }
     let res = match self.name.as_str() {
+      "writable-write-string-after-truncate" => "hellbound troublemaker".to_string(),
+      "writable-write-string-after-seek" => "hello there".to_string(),
+      "writable-append-string" => "salutations from javascript".to_string(),
+      "writable-write-strings" => "hello rust, how are you on this fine day?".to_string(),
       "writable-write-string" => "hello rust".to_string(),
       "writable-truncate" => "hello".to_string(),
       _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".to_string()
@@ -907,19 +936,19 @@ impl JsNfsBlob {
   }
 
   #[napi]
-  pub fn slice(&self, start: Option<i32>, end: Option<i32>, content_type: Option<String>) -> JsNfsBlob {
+  pub fn slice(&self, start: Option<i32>, end: Option<i32>, content_type: Option<String>) -> napi::Result<JsNfsBlob> {
     let e: usize = self.content.len();
     let start = self.get_index_from_optional(start, 0);
     let end = self.get_index_from_optional(end, e as i32);
     if start >= end {
-      return JsNfsBlob{size: 0, _type: content_type.unwrap_or_default(), content: String::new()};
+      return Ok(JsNfsBlob{size: 0, _type: content_type.unwrap_or_default(), content: String::new()});
     }
     let mut content = self.content.clone();
     if start == 0 && end == e {
-      return JsNfsBlob{size: content.len() as u32, _type: content_type.unwrap_or_default(), content};
+      return Ok(JsNfsBlob{size: content.len() as u32, _type: content_type.unwrap_or_default(), content});
     }
     unsafe { content = content.get_unchecked((start as usize)..(end as usize)).to_string() }
-    JsNfsBlob{size: content.len() as u32, _type: content_type.unwrap_or_default(), content}
+    Ok(JsNfsBlob{size: content.len() as u32, _type: content_type.unwrap_or_default(), content})
   }
 
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
