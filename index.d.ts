@@ -69,7 +69,6 @@ export class JsNfsFile {
   readonly type: string
   readonly lastModified: number
   readonly name: string
-  readonly webkitRelativePath: string
   arrayBuffer(): Promise<ArrayBuffer>
   slice(start?: number | undefined | null, end?: number | undefined | null, contentType?: string | undefined | null): JsNfsBlob
   stream(): ReadableStream<Uint8Array>

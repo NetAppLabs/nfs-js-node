@@ -324,7 +324,6 @@ test('should return file for file handle', async (t) => {
   const file = await fileHandle.getFile();
   t.is(file.name, "annar");
   t.is(file.type, "text/plain");
-  t.is(file.webkitRelativePath, ".");
   t.is(file.size, 123);
   t.true(file.lastModified >= 1658159058);
 })
@@ -400,7 +399,7 @@ test('should return blob when slicing blob', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
-  const blob = file.slice(undefined, undefined, "text/plain");
+  const blob = file.slice(undefined, 500, "text/plain");
   t.is(blob.size, file.size);
   t.is(blob.type, "text/plain");
   const text = await blob.text();
@@ -432,13 +431,13 @@ test('should succeed when not keeping existing data and writing string', async (
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string", {create: true});
   const writable = await fileHandle.createWritable();
-  await t.notThrowsAsync(writable.write("howdy")); // FIXME: original data kept short because writable does not truncate automatically -- should it?
+  await t.notThrowsAsync(writable.write("hello rust, all is well"));
   const overwritable = await fileHandle.createWritable();
-  await t.notThrowsAsync(overwritable.write("hello rust"));
+  await t.notThrowsAsync(overwritable.write("happy days"));
   const file = await fileHandle.getFile();
-  t.is(file.size, 10);
+  t.is(file.size, 23);
   const text = await file.text();
-  t.is(text, "hello rust");
+  t.is(text, "happy days, all is well");
   await rootHandle.removeEntry(fileHandle.name);
 })
 

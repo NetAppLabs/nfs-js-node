@@ -91,7 +91,6 @@ interface FileSystemWritableFileStream extends WritableStream {
 interface File extends Blob {
     readonly lastModified: number;
     readonly name: string;
-    readonly webkitRelativePath: string;
 }
 
 interface Blob {
@@ -304,7 +303,7 @@ impl FromNapiValue for JsNfsHandlePermissionDescriptor {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let mode = obj[FIELD_MODE].as_str().unwrap().to_string();
+    let mode = obj.get(FIELD_MODE).and_then(|val| Some(val.as_str().unwrap())).unwrap_or_default().to_string();
     let res = JsNfsHandlePermissionDescriptor{mode};
     Ok(res)
   }
@@ -580,8 +579,7 @@ impl JsNfsDirectoryHandle {
   #[napi]
   pub async fn get_directory_handle(&self, name: String, options: Option<JsNfsGetDirectoryOptions>) -> napi::Result<JsNfsDirectoryHandle> {
     let create = should_create_directory(options);
-    let entries = self.nfs_entries()?;
-    for entry in entries {
+    for entry in self.nfs_entries()? {
       if entry.kind == KIND_DIRECTORY.to_string() && entry.name == name {
         return Ok(entry.into())
       }
@@ -601,8 +599,7 @@ impl JsNfsDirectoryHandle {
   #[napi]
   pub async fn get_file_handle(&self, name: String, options: Option<JsNfsGetFileOptions>) -> napi::Result<JsNfsFileHandle> {
     let create = should_create_file(options);
-    let entries = self.nfs_entries()?;
-    for entry in entries {
+    for entry in self.nfs_entries()? {
       if entry.kind == KIND_FILE.to_string() && entry.name == name {
         return Ok(entry.into())
       }
@@ -768,8 +765,7 @@ impl JsNfsFileHandle {
       let my_nfs = nfs.to_owned();
       let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
       let _type = "text/plain".to_string(); // FIXME
-      let webkit_relative_path = ".".to_string(); // FIXME
-      let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as u32, _type, last_modified: nfs_stat.nfs_mtime as u32, name: self.name.clone(), webkit_relative_path};
+      let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as u32, _type, last_modified: nfs_stat.nfs_mtime as u32, name: self.name.clone()};
       return Ok(res);
     }
     let res = JsNfsFile::with_initial_name(self.name.clone());
@@ -827,9 +823,7 @@ struct JsNfsFile {
   #[napi(readonly)]
   pub last_modified: u32,
   #[napi(readonly)]
-  pub name: String,
-  #[napi(readonly)]
-  pub webkit_relative_path: String
+  pub name: String
 }
 
 #[napi]
@@ -841,7 +835,7 @@ impl JsNfsFile {
       "writable-write-string-after-seek" => 11,
       "writable-append-string" => 27,
       "writable-write-strings" => 41,
-      "writable-write-string" => 10,
+      "writable-write-string" => 23,
       "writable-truncate" => 5,
       _ => 123
     };
@@ -850,13 +844,12 @@ impl JsNfsFile {
       size,
       _type: "text/plain".to_string(),
       last_modified: 1658159058,
-      name,
-      webkit_relative_path: ".".to_string()
+      name
     }
   }
 
   fn to_blob(&self) -> JsNfsBlob {
-    let content = self.nfs_text().unwrap();
+    let content = self.nfs_bytes().unwrap();
     JsNfsBlob{size: content.len() as u32, _type: self._type.clone(), content}
   }
 
@@ -876,37 +869,37 @@ impl JsNfsFile {
     self.to_blob().stream()
   }
 
-  fn nfs_text(&self) -> napi::Result<String> {
+  fn nfs_bytes(&self) -> napi::Result<Vec<u8>> {
     if let Some(nfs) = &self.handle.nfs {
       let mut my_nfs = nfs.to_owned();
       let nfs_file = my_nfs.open(Path::new(self.handle.path.as_str()), OFlag::O_SYNC)?;
       let nfs_stat = nfs_file.fstat64()?;
       let buffer = &mut vec![0u8; nfs_stat.nfs_size as usize];
       let _ = nfs_file.pread_into(nfs_stat.nfs_size, 0, buffer)?;
-      let res = str::from_utf8(buffer).unwrap();
-      return Ok(res.to_string());
+      return Ok(buffer.to_vec());
     }
     let res = match self.name.as_str() {
-      "writable-write-string-after-truncate" => "hellbound troublemaker".to_string(),
-      "writable-write-string-after-seek" => "hello there".to_string(),
-      "writable-append-string" => "salutations from javascript".to_string(),
-      "writable-write-strings" => "hello rust, how are you on this fine day?".to_string(),
-      "writable-write-string" => "hello rust".to_string(),
-      "writable-truncate" => "hello".to_string(),
-      _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".to_string()
+      "writable-write-string-after-truncate" => "hellbound troublemaker",
+      "writable-write-string-after-seek" => "hello there",
+      "writable-append-string" => "salutations from javascript",
+      "writable-write-strings" => "hello rust, how are you on this fine day?",
+      "writable-write-string" => "happy days, all is well",
+      "writable-truncate" => "hello",
+      _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count."
     };
-    Ok(res)
+    Ok(res.as_bytes().to_vec())
   }
 
   #[napi]
   pub async fn text(&self) -> napi::Result<String> {
-    self.nfs_text()
+    let res = str::from_utf8(&self.nfs_bytes()?).unwrap().to_string();
+    Ok(res)
   }
 }
 
 #[napi]
 struct JsNfsBlob {
-  content: String,
+  content: Vec<u8>,
   #[napi(readonly)]
   pub size: u32,
   #[napi(readonly)]
@@ -924,30 +917,25 @@ impl JsNfsBlob {
     Ok(res)
   }
 
-  fn get_index_from_optional(&self, pos: Option<i32>, def: i32) -> usize {
+  fn get_index_from_optional(&self, pos: Option<i32>, max: i32, def: i32) -> usize {
     let mut pos = pos.unwrap_or(def);
     if pos < 0 {
       pos = pos + (self.content.len() as i32);
       if pos <= 0 {
         pos = 0;
       }
+    } else if pos > max {
+      pos = max;
     }
     pos as usize
   }
 
   #[napi]
   pub fn slice(&self, start: Option<i32>, end: Option<i32>, content_type: Option<String>) -> napi::Result<JsNfsBlob> {
-    let e: usize = self.content.len();
-    let start = self.get_index_from_optional(start, 0);
-    let end = self.get_index_from_optional(end, e as i32);
-    if start >= end {
-      return Ok(JsNfsBlob{size: 0, _type: content_type.unwrap_or_default(), content: String::new()});
-    }
-    let mut content = self.content.clone();
-    if start == 0 && end == e {
-      return Ok(JsNfsBlob{size: content.len() as u32, _type: content_type.unwrap_or_default(), content});
-    }
-    unsafe { content = content.get_unchecked((start as usize)..(end as usize)).to_string() }
+    let len = self.content.len() as i32;
+    let start = self.get_index_from_optional(start, len, 0);
+    let end = self.get_index_from_optional(end, len, len);
+    let content = self.content.get(start..end).unwrap_or_default().to_vec();
     Ok(JsNfsBlob{size: content.len() as u32, _type: content_type.unwrap_or_default(), content})
   }
 
@@ -961,7 +949,7 @@ impl JsNfsBlob {
 
   #[napi]
   pub async fn text(&self) -> napi::Result<String> {
-    let res = self.content.clone();
+    let res = str::from_utf8(&self.content.clone()).unwrap().to_string();
     Ok(res)
   }
 }
