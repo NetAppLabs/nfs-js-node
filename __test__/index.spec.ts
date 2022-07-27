@@ -74,6 +74,20 @@ test('should be granted readwrite permission when querying on directory', async 
   t.is(perm, "granted");
 })
 
+test('should be granted read permission when querying on read-only directory', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("quatre");
+  const perm = await dirHandle.queryPermission({mode: "read"});
+  t.is(perm, "granted");
+})
+
+test('should be denied readwrite permission when querying on read-only directory', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("quatre");
+  const perm = await dirHandle.queryPermission({mode: "readwrite"});
+  t.is(perm, "denied");
+})
+
 test('should be granted read permission when requesting on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first");
@@ -102,6 +116,20 @@ test('should be granted readwrite permission when querying on file', async (t) =
   t.is(perm, "granted");
 })
 
+test('should be granted read permission when querying on read-only file', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("3");
+  const perm = await fileHandle.queryPermission({mode: "read"});
+  t.is(perm, "granted");
+})
+
+test('should be denied readwrite permission when querying on read-only file', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("3");
+  const perm = await fileHandle.queryPermission({mode: "readwrite"});
+  t.is(perm, "denied");
+})
+
 test('should be granted read permission when requesting on file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
@@ -122,6 +150,7 @@ test.failing('should iterate through directory', async (t) => {
   const expectedEntries = [
     {key: "3", value: {kind: "file", name: "3"}},
     {key: "annar", value: {kind: "file", name: "annar"}},
+    {key: "quatre", value: {kind: "directory", name: "quatre"}},
     {key: "first", value: {kind: "directory", name: "first"}},
     {key: "..", value: {kind: "directory", name: ".."}},
     {key: ".", value: {kind: "directory", name: "."}},
@@ -144,6 +173,7 @@ test('should iterate through entries', async (t) => {
   const expectedEntries = [
     {key: "3", value: {kind: "file", name: "3"}},
     {key: "annar", value: {kind: "file", name: "annar"}},
+    {key: "quatre", value: {kind: "directory", name: "quatre"}},
     {key: "first", value: {kind: "directory", name: "first"}},
     {key: "..", value: {kind: "directory", name: ".."}},
     {key: ".", value: {kind: "directory", name: "."}},
@@ -163,7 +193,7 @@ test('should iterate through entries', async (t) => {
 
 test('should iterate through keys', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const expectedKeys = ["3", "annar", "first", "..", "."];
+  const expectedKeys = ["3", "annar", "quatre", "first", "..", "."];
   let i = 0;
   for await (const key of rootHandle.keys()) {
     if (i > expectedKeys.length) {
@@ -179,6 +209,7 @@ test('should iterate through values', async (t) => {
   const expectedValues = [
     {kind: "file", name: "3"},
     {kind: "file", name: "annar"},
+    {kind: "directory", name: "quatre"},
     {kind: "directory", name: "first"},
     {kind: "directory", name: ".."},
     {kind: "directory", name: "."},
@@ -325,7 +356,7 @@ test('should return file for file handle', async (t) => {
   t.is(file.name, "annar");
   t.is(file.type, "text/plain");
   t.is(file.size, 123);
-  t.true(file.lastModified >= 1658159058);
+  t.true(file.lastModified >= 1658159058723);
 })
 
 test('should return array buffer for file', async (t) => {

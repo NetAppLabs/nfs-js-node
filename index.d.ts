@@ -49,9 +49,9 @@ export class JsNfsDirectoryHandle {
   entries(): AsyncIterableIterator<[string, FileSystemDirectoryHandle | FileSystemFileHandle]>
   keys(): AsyncIterableIterator<string>
   values(): AsyncIterableIterator<FileSystemDirectoryHandle | FileSystemFileHandle>
-  getDirectoryHandle(name: string, options?: JsNfsGetDirectoryOptions | undefined | null): Promise<JsNfsDirectoryHandle>
-  getFileHandle(name: string, options?: JsNfsGetFileOptions | undefined | null): Promise<JsNfsFileHandle>
-  removeEntry(name: string, options?: JsNfsRemoveOptions | undefined | null): Promise<void>
+  getDirectoryHandle(name: string, options?: JsNfsGetDirectoryOptions): Promise<JsNfsDirectoryHandle>
+  getFileHandle(name: string, options?: JsNfsGetFileOptions): Promise<JsNfsFileHandle>
+  removeEntry(name: string, options?: JsNfsRemoveOptions): Promise<void>
   resolve(possibleDescendant: JsNfsHandle): Promise<Array<string> | null>
 }
 export class JsNfsFileHandle {
@@ -62,7 +62,7 @@ export class JsNfsFileHandle {
   queryPermission(perm: JsNfsHandlePermissionDescriptor): Promise<string>
   requestPermission(perm: JsNfsHandlePermissionDescriptor): Promise<string>
   getFile(): Promise<JsNfsFile>
-  createWritable(options?: JsNfsCreateWritableOptions | undefined | null): Promise<JsNfsWritableFileStream>
+  createWritable(options?: JsNfsCreateWritableOptions): Promise<JsNfsWritableFileStream>
 }
 export class JsNfsFile {
   readonly size: number
@@ -70,7 +70,7 @@ export class JsNfsFile {
   readonly lastModified: number
   readonly name: string
   arrayBuffer(): Promise<ArrayBuffer>
-  slice(start?: number | undefined | null, end?: number | undefined | null, contentType?: string | undefined | null): JsNfsBlob
+  slice(start?: number, end?: number, contentType?: string): JsNfsBlob
   stream(): ReadableStream<Uint8Array>
   text(): Promise<string>
 }
@@ -78,7 +78,7 @@ export class JsNfsBlob {
   readonly size: number
   readonly type: string
   arrayBuffer(): Promise<ArrayBuffer>
-  slice(start?: number | undefined | null, end?: number | undefined | null, contentType?: string | undefined | null): JsNfsBlob
+  slice(start?: number, end?: number, contentType?: string): JsNfsBlob
   stream(): ReadableStream<Uint8Array>
   text(): Promise<string>
 }

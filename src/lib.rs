@@ -114,7 +114,7 @@ const FIELD_KEEP_EXISTING_DATA: &str = "keepExistingData";
 const KIND_FILE: &str = "file";
 const KIND_DIRECTORY: &str = "directory";
 
-const _PERM_READ: &str = "read";
+const PERM_READ: &str = "read";
 const PERM_READWRITE: &str = "readwrite";
 
 const PERM_STATE_GRANTED: &str = "granted";
@@ -207,7 +207,7 @@ impl Generator for JsNfsDirectoryHandleValues {
 #[napi]
 struct JsNfsWritableFileStream {
   handle: JsNfsHandle,
-  position: Option<u32>,
+  position: Option<i64>,
   #[napi(readonly)]
   pub locked: bool
 }
@@ -232,17 +232,17 @@ impl JsNfsWritableFileStream {
         _ => self.position.unwrap() as u64
       };
       let _ = nfs_file.pwrite(data.as_bytes(), offset)?;
-      self.position = Some((offset as u32) + (data.as_bytes().len() as u32));
+      self.position = Some((offset as i64) + (data.as_bytes().len() as i64));
     }
     Ok(())
   }
 
   #[napi]
-  pub async fn seek(&mut self, position: u32) -> napi::Result<Undefined> {
+  pub async fn seek(&mut self, position: i64) -> napi::Result<Undefined> {
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
       let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
-      if position > nfs_stat.nfs_size as u32 {
+      if position > nfs_stat.nfs_size as i64 {
         return Err(Error::new(Status::GenericFailure, "Seeking past size".to_string()));
       }
     } else {
@@ -255,7 +255,7 @@ impl JsNfsWritableFileStream {
   }
 
   #[napi]
-  pub async fn truncate(&mut self, size: u32) -> napi::Result<Undefined> {
+  pub async fn truncate(&mut self, size: i64) -> napi::Result<Undefined> {
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
       my_nfs.truncate(Path::new(self.handle.path.as_str()), size as u64)?;
@@ -297,6 +297,22 @@ impl JsNfsWritableFileStream {
 struct JsNfsHandlePermissionDescriptor {
   #[napi(ts_type="'read' | 'readwrite'")]
   pub mode: String
+}
+
+impl JsNfsHandlePermissionDescriptor {
+
+  fn to_mode(&self, kind: &str) -> Mode {
+    match (kind, self.mode.as_str()) {
+      (KIND_DIRECTORY, PERM_READWRITE) => Mode::S_IRWXU | Mode::S_IRWXG, // 770
+      (KIND_DIRECTORY, PERM_READ) => Mode::S_IRUSR | Mode::S_IXUSR | Mode::S_IRGRP | Mode::S_IXGRP, // 550
+      (KIND_FILE, PERM_READWRITE) => Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IWGRP, // 660
+      _ => Mode::S_IRUSR | Mode::S_IRGRP // 440
+    }
+  }
+
+  fn to_u64(&self, kind: &str) -> u64 {
+    self.to_mode(kind).bits().into()
+  }
 }
 
 impl FromNapiValue for JsNfsHandlePermissionDescriptor {
@@ -435,32 +451,34 @@ impl JsNfsHandle {
   pub async fn query_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
     if let Some(nfs) = &self.nfs {
       let my_nfs = nfs.to_owned();
-      let mode = match perm.mode.as_str() {
-        PERM_READWRITE => Mode::S_IRUSR | Mode::S_IWUSR,
-        _ => Mode::S_IRUSR
-      };
-      if my_nfs.access(Path::new(self.name.as_str()), mode.bits().into()).is_ok() {
+      let nfs_stat = my_nfs.stat64(Path::new(self.path.as_str()))?;
+      let perm_u64 = perm.to_u64(self.kind.as_str());
+      if nfs_stat.nfs_mode & perm_u64 == perm_u64 {
         return Ok(PERM_STATE_GRANTED.to_string());
       }
-      return Ok(PERM_STATE_DENIED.to_string());
     }
-    Ok(PERM_STATE_GRANTED.to_string())
+    if self.nfs.is_none() && ((self.name != "3" && self.name != "quatre") || perm.mode != PERM_READWRITE.to_string()) {
+      return Ok(PERM_STATE_GRANTED.to_string());
+    }
+    Ok(PERM_STATE_DENIED.to_string())
   }
 
   #[napi]
   pub async fn request_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> napi::Result<String> {
     if let Some(nfs) = &self.nfs {
       let my_nfs = nfs.to_owned();
-      let mode = match perm.mode.as_str() {
-        PERM_READWRITE => Mode::S_IRUSR | Mode::S_IWUSR,
-        _ => Mode::S_IRUSR
-      };
-      if my_nfs.access(Path::new(self.name.as_str()), mode.bits().into()).is_ok() {
+      let nfs_stat = my_nfs.stat64(Path::new(self.path.as_str()))?;
+      let perm_u64 = perm.to_u64(self.kind.as_str());
+      if nfs_stat.nfs_mode & perm_u64 == perm_u64 {
         return Ok(PERM_STATE_GRANTED.to_string());
       }
-      return Ok(PERM_STATE_DENIED.to_string());
+      let mode = perm.to_mode(self.kind.as_str()).union(Mode::from_bits_truncate(nfs_stat.nfs_mode as u16));
+      if !my_nfs.lchmod(Path::new(self.name.as_str()), mode).is_ok() {
+        return Ok(PERM_STATE_DENIED.to_string());
+      }
     }
-    Ok(PERM_STATE_GRANTED.to_string())
+    let res = self.query_permission(perm).await?;
+    Ok(res)
   }
 }
 
@@ -551,6 +569,7 @@ impl JsNfsDirectoryHandle {
     } else {
       entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "3".to_string(), kind: KIND_FILE.to_string(), name: "3".to_string()});
       entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "annar".to_string(), kind: KIND_FILE.to_string(), name: "annar".to_string()});
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "quatre".to_string(), kind: KIND_DIRECTORY.to_string(), name: "quatre".to_string()});
       entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "first".to_string(), kind: KIND_DIRECTORY.to_string(), name: "first".to_string()});
       entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "..".to_string(), kind: KIND_DIRECTORY.to_string(), name: "..".to_string()});
       entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: ".".to_string(), kind: KIND_DIRECTORY.to_string(), name: ".".to_string()});
@@ -577,7 +596,7 @@ impl JsNfsDirectoryHandle {
   }
 
   #[napi]
-  pub async fn get_directory_handle(&self, name: String, options: Option<JsNfsGetDirectoryOptions>) -> napi::Result<JsNfsDirectoryHandle> {
+  pub async fn get_directory_handle(&self, name: String, #[napi(ts_arg_type="JsNfsGetDirectoryOptions")] options: Option<JsNfsGetDirectoryOptions>) -> napi::Result<JsNfsDirectoryHandle> {
     let create = should_create_directory(options);
     for entry in self.nfs_entries()? {
       if entry.kind == KIND_DIRECTORY.to_string() && entry.name == name {
@@ -597,7 +616,7 @@ impl JsNfsDirectoryHandle {
   }
 
   #[napi]
-  pub async fn get_file_handle(&self, name: String, options: Option<JsNfsGetFileOptions>) -> napi::Result<JsNfsFileHandle> {
+  pub async fn get_file_handle(&self, name: String, #[napi(ts_arg_type="JsNfsGetFileOptions")] options: Option<JsNfsGetFileOptions>) -> napi::Result<JsNfsFileHandle> {
     let create = should_create_file(options);
     for entry in self.nfs_entries()? {
       if entry.kind == KIND_FILE.to_string() && entry.name == name {
@@ -610,7 +629,7 @@ impl JsNfsDirectoryHandle {
     let path = format!("{}{}", self.handle.path.clone(), name.clone());
     if let Some(nfs) = &self.handle.nfs {
       let mut my_nfs = nfs.to_owned();
-      let _ = my_nfs.create(Path::new(path.as_str()), OFlag::O_SYNC, Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IWGRP | Mode::S_IRGRP | Mode::S_IROTH | Mode::S_IWOTH)?;
+      let _ = my_nfs.create(Path::new(path.as_str()), OFlag::O_SYNC, Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IWGRP | Mode::S_IROTH | Mode::S_IWOTH)?;
     }
     let res = JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_FILE.to_string(), name: name.clone()};
     Ok(res.into())
@@ -650,7 +669,7 @@ impl JsNfsDirectoryHandle {
   }
 
   #[napi]
-  pub async fn remove_entry(&self, name: String, options: Option<JsNfsRemoveOptions>) -> napi::Result<()> {
+  pub async fn remove_entry(&self, name: String, #[napi(ts_arg_type="JsNfsRemoveOptions")] options: Option<JsNfsRemoveOptions>) -> napi::Result<()> {
     let recursive = should_remove_recursively(options);
     let entries = self.nfs_entries()?;
     for entry in entries {
@@ -765,7 +784,7 @@ impl JsNfsFileHandle {
       let my_nfs = nfs.to_owned();
       let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
       let _type = "text/plain".to_string(); // FIXME
-      let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as u32, _type, last_modified: nfs_stat.nfs_mtime as u32, name: self.name.clone()};
+      let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as i64, _type, last_modified: (nfs_stat.nfs_mtime * 1000) as i64, name: self.name.clone()};
       return Ok(res);
     }
     let res = JsNfsFile::with_initial_name(self.name.clone());
@@ -773,7 +792,7 @@ impl JsNfsFileHandle {
   }
 
   #[napi]
-  pub async fn create_writable(&self, options: Option<JsNfsCreateWritableOptions>) -> napi::Result<JsNfsWritableFileStream> {
+  pub async fn create_writable(&self, #[napi(ts_arg_type="JsNfsCreateWritableOptions")] options: Option<JsNfsCreateWritableOptions>) -> napi::Result<JsNfsWritableFileStream> {
     let keep_existing_data = should_keep_existing_data(options);
     let position = match keep_existing_data {
       false => Some(0),
@@ -817,11 +836,11 @@ impl From<JsNfsHandle> for JsNfsFileHandle {
 struct JsNfsFile {
   handle: JsNfsHandle,
   #[napi(readonly)]
-  pub size: u32,
+  pub size: i64,
   #[napi(readonly)]
   pub _type: String,
   #[napi(readonly)]
-  pub last_modified: u32,
+  pub last_modified: i64,
   #[napi(readonly)]
   pub name: String
 }
@@ -830,7 +849,7 @@ struct JsNfsFile {
 impl JsNfsFile {
 
   pub fn with_initial_name(name: String) -> Self {
-    let size: u32 = match name.as_str() {
+    let size: i64 = match name.as_str() {
       "writable-write-string-after-truncate" => 22,
       "writable-write-string-after-seek" => 11,
       "writable-append-string" => 27,
@@ -843,14 +862,14 @@ impl JsNfsFile {
       handle: JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()},
       size,
       _type: "text/plain".to_string(),
-      last_modified: 1658159058,
+      last_modified: 1658159058723,
       name
     }
   }
 
   fn to_blob(&self) -> JsNfsBlob {
     let content = self.nfs_bytes().unwrap();
-    JsNfsBlob{size: content.len() as u32, _type: self._type.clone(), content}
+    JsNfsBlob{size: content.len() as i64, _type: self._type.clone(), content}
   }
 
   #[napi(ts_return_type="Promise<ArrayBuffer>")]
@@ -860,7 +879,7 @@ impl JsNfsFile {
   }
 
   #[napi]
-  pub fn slice(&self, start: Option<i32>, end: Option<i32>, content_type: Option<String>) -> napi::Result<JsNfsBlob> {
+  pub fn slice(&self, #[napi(ts_arg_type="number")] start: Option<i64>, #[napi(ts_arg_type="number")] end: Option<i64>, #[napi(ts_arg_type="string")] content_type: Option<String>) -> napi::Result<JsNfsBlob> {
     self.to_blob().slice(start, end, content_type)
   }
 
@@ -901,7 +920,7 @@ impl JsNfsFile {
 struct JsNfsBlob {
   content: Vec<u8>,
   #[napi(readonly)]
-  pub size: u32,
+  pub size: i64,
   #[napi(readonly)]
   pub _type: String
 }
@@ -917,26 +936,27 @@ impl JsNfsBlob {
     Ok(res)
   }
 
-  fn get_index_from_optional(&self, pos: Option<i32>, max: i32, def: i32) -> usize {
-    let mut pos = pos.unwrap_or(def);
-    if pos < 0 {
-      pos = pos + (self.content.len() as i32);
-      if pos <= 0 {
-        pos = 0;
+  fn get_index_from_optional(&self, pos: Option<i64>, max: i64, def: i64) -> usize {
+    pos.and_then(|mut pos| {
+      if pos < 0 {
+        pos += max;
+        if pos < 0 {
+          pos = 0;
+        }
+      } else if pos > max {
+        pos = max;
       }
-    } else if pos > max {
-      pos = max;
-    }
-    pos as usize
+      Some(pos)
+    }).unwrap_or(def) as usize
   }
 
   #[napi]
-  pub fn slice(&self, start: Option<i32>, end: Option<i32>, content_type: Option<String>) -> napi::Result<JsNfsBlob> {
-    let len = self.content.len() as i32;
+  pub fn slice(&self, #[napi(ts_arg_type="number")] start: Option<i64>, #[napi(ts_arg_type="number")] end: Option<i64>, #[napi(ts_arg_type="string")] content_type: Option<String>) -> napi::Result<JsNfsBlob> {
+    let len = self.content.len() as i64;
     let start = self.get_index_from_optional(start, len, 0);
     let end = self.get_index_from_optional(end, len, len);
     let content = self.content.get(start..end).unwrap_or_default().to_vec();
-    Ok(JsNfsBlob{size: content.len() as u32, _type: content_type.unwrap_or_default(), content})
+    Ok(JsNfsBlob{size: content.len() as i64, _type: content_type.unwrap_or_default(), content})
   }
 
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
