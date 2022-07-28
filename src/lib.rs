@@ -110,6 +110,13 @@ const FIELD_MODE: &str = "mode";
 const FIELD_CREATE: &str = "create";
 const FIELD_RECURSIVE: &str = "recursive";
 const FIELD_KEEP_EXISTING_DATA: &str = "keepExistingData";
+const FIELD_DATA: &str = "data";
+const FIELD_TYPE: &str = "type";
+const FIELD_SIZE: &str = "size";
+const FIELD_LENGTH: &str = "length";
+const FIELD_BUFFER: &str = "buffer";
+const FIELD_POSITION: &str = "position";
+const FIELD_BYTE_LENGTH: &str = "byteLength";
 
 const KIND_FILE: &str = "file";
 const KIND_DIRECTORY: &str = "directory";
@@ -120,6 +127,10 @@ const PERM_READWRITE: &str = "readwrite";
 const PERM_STATE_GRANTED: &str = "granted";
 const PERM_STATE_DENIED: &str = "denied";
 const _PERM_STATE_PROMPT: &str = "prompt";
+
+const WRITE_TYPE_WRITE: &str = "write";
+const WRITE_TYPE_SEEK: &str = "seek";
+const WRITE_TYPE_TRUNCATE: &str = "truncate";
 
 #[napi(iterator)]
 struct JsNfsDirectoryHandleEntries {
@@ -215,12 +226,47 @@ struct JsNfsWritableFileStream {
 #[napi]
 impl JsNfsWritableFileStream {
 
-  #[napi]
-  pub async fn write(&mut self, data: Value) -> napi::Result<Undefined> {
-    if !data.is_string() {
-      return Err(Error::new(Status::StringExpected, "Writing data other than strings is not implemented yet".to_string()));
+  fn try_seek_and_write_data(&mut self, obj: &Map<String, Value>) -> napi::Result<Undefined> {
+    let old_position = self.position.clone();
+    if let Some(position) = obj.get(FIELD_POSITION).and_then(|p| p.as_i64()) {
+      let res = self.nfs_seek(position);
+      if !res.is_ok() {
+        return res;
+      }
     }
-    let data = data.as_str().unwrap_or_default();
+    let res = self.try_write_data(obj.get(FIELD_DATA).or(Some(&Value::Null)).unwrap());
+    if !res.is_ok() {
+      self.position = old_position;
+    }
+    res
+  }
+
+  fn try_write_obj(&mut self, obj: &Map<String, Value>) -> napi::Result<Undefined> {
+    if let Some(data) = obj.get(FIELD_DATA) {
+      return self.try_write_data(data);
+    }
+    Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()))
+  }
+
+  fn try_write_data(&mut self, data: &Value) -> napi::Result<Undefined> {
+    if let Some(data) = data.as_object() {
+      if let Some(_type) = data.get(FIELD_TYPE).and_then(|t| t.as_str()) {
+        return self.nfs_write_blob(_type, data);
+      } else if let Some(length) = data.get(FIELD_LENGTH).and_then(|l| l.as_i64()) {
+        return self.nfs_write_typed_array(length, data);
+      } else if let Some(buffer) = data.get(FIELD_BUFFER).and_then(|b| b.as_object()) {
+        return self.nfs_write_data_view(buffer, data);
+      } else if let Some(byte_length) = data.get(FIELD_BYTE_LENGTH).and_then(|bl| bl.as_i64()) {
+        return self.nfs_write_array_buffer(byte_length, data);
+      }
+      return Err(Error::new(Status::InvalidArg, "Writing unsupported data type".to_string()));
+    } else if let Some(data) = data.as_str() {
+      return self.nfs_write_str(data);
+    }
+    Err(Error::new(Status::InvalidArg, "Property data of type object or string is required when writing object with type='write'".to_string()))
+  }
+
+  fn nfs_write_str(&mut self, data: &str) -> napi::Result<Undefined> {
     if let Some(nfs) = &self.handle.nfs {
       let mut my_nfs = nfs.to_owned();
       let nfs_file = my_nfs.open(Path::new(self.handle.path.as_str()), OFlag::O_SYNC)?;
@@ -237,8 +283,48 @@ impl JsNfsWritableFileStream {
     Ok(())
   }
 
+  fn nfs_write_blob(&mut self, _type: &str, _blob: &Map<String, Value>) -> napi::Result<Undefined> {
+    Err(Error::new(Status::GenericFailure, "Writing blob is not implemented yet".to_string()))
+  }
+
+  fn nfs_write_typed_array(&mut self, _length: i64, _typed_array: &Map<String, Value>) -> napi::Result<Undefined> {
+    Err(Error::new(Status::GenericFailure, "Writing typed array is not implemented yet".to_string()))
+  }
+
+  fn nfs_write_data_view(&mut self, _buffer: &Map<String, Value>, _data_view: &Map<String, Value>) -> napi::Result<Undefined> {
+    Err(Error::new(Status::GenericFailure, "Writing data view is not implemented yet".to_string()))
+  }
+
+  fn nfs_write_array_buffer(&mut self, _byte_length: i64, _data_view: &Map<String, Value>) -> napi::Result<Undefined> {
+    Err(Error::new(Status::GenericFailure, "Writing array buffer is not implemented yet".to_string()))
+  }
+
   #[napi]
-  pub async fn seek(&mut self, position: i64) -> napi::Result<Undefined> {
+  pub async fn write(&mut self, data: Value) -> napi::Result<Undefined> {
+    if let Some(obj) = data.as_object() {
+      if let Some(_type) = obj.get(FIELD_TYPE).and_then(|t| t.as_str()) {
+        match _type {
+          WRITE_TYPE_WRITE => return self.try_seek_and_write_data(obj),
+          WRITE_TYPE_SEEK => return self.try_seek(obj),
+          WRITE_TYPE_TRUNCATE => return self.try_truncate(obj),
+          _ => ()
+        }
+      }
+      return self.try_write_obj(obj);
+    } else if let Some(_str) = data.as_str() {
+      return self.nfs_write_str(_str);
+    }
+    Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()))
+  }
+
+  fn try_seek(&mut self, obj: &Map<String, Value>) -> napi::Result<Undefined> {
+    if let Some(position) = obj.get(FIELD_POSITION).and_then(|p| p.as_i64()) {
+      return self.nfs_seek(position);
+    }
+    Err(Error::new(Status::InvalidArg, "Property position of type number is required when writing object with type='seek'".to_string()))
+  }
+
+  fn nfs_seek(&mut self, position: i64) -> napi::Result<Undefined> {
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
       let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
@@ -255,7 +341,18 @@ impl JsNfsWritableFileStream {
   }
 
   #[napi]
-  pub async fn truncate(&mut self, size: i64) -> napi::Result<Undefined> {
+  pub async fn seek(&mut self, position: i64) -> napi::Result<Undefined> {
+    self.nfs_seek(position)
+  }
+
+  fn try_truncate(&mut self, obj: &Map<String, Value>) -> napi::Result<Undefined> {
+    if let Some(size) = obj.get(FIELD_SIZE).and_then(|s| s.as_i64()) {
+      return self.nfs_truncate(size);
+    }
+    Err(Error::new(Status::InvalidArg, "Property size of type number is required when writing object with type='truncate'".to_string()))
+  }
+
+  fn nfs_truncate(&mut self, size: i64) -> napi::Result<Undefined> {
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
       my_nfs.truncate(Path::new(self.handle.path.as_str()), size as u64)?;
@@ -266,6 +363,11 @@ impl JsNfsWritableFileStream {
       }
     }
     Ok(())
+  }
+
+  #[napi]
+  pub async fn truncate(&mut self, size: i64) -> napi::Result<Undefined> {
+    self.nfs_truncate(size)
   }
 
   #[napi]
@@ -319,8 +421,8 @@ impl FromNapiValue for JsNfsHandlePermissionDescriptor {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let mode = obj.get(FIELD_MODE).and_then(|val| Some(val.as_str().unwrap())).unwrap_or_default().to_string();
-    let res = JsNfsHandlePermissionDescriptor{mode};
+    let mode = obj.get(FIELD_MODE).and_then(|val| val.as_str()).unwrap_or_default();
+    let res = JsNfsHandlePermissionDescriptor{mode: mode.to_string()};
     Ok(res)
   }
 }
@@ -334,7 +436,7 @@ impl FromNapiValue for JsNfsGetDirectoryOptions {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let create = obj.get(FIELD_CREATE).and_then(|val| Some(val.as_bool().unwrap())).unwrap_or_default();
+    let create = obj.get(FIELD_CREATE).and_then(|val| val.as_bool()).unwrap_or_default();
     let res = JsNfsGetDirectoryOptions{create};
     Ok(res)
   }
@@ -356,7 +458,7 @@ impl FromNapiValue for JsNfsGetFileOptions {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let create = obj.get(FIELD_CREATE).and_then(|val| Some(val.as_bool().unwrap())).unwrap_or_default();
+    let create = obj.get(FIELD_CREATE).and_then(|val| val.as_bool()).unwrap_or_default();
     let res = JsNfsGetFileOptions{create};
     Ok(res)
   }
@@ -378,7 +480,7 @@ impl FromNapiValue for JsNfsRemoveOptions {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let recursive = obj.get(FIELD_RECURSIVE).and_then(|val| Some(val.as_bool().unwrap())).unwrap_or_default();
+    let recursive = obj.get(FIELD_RECURSIVE).and_then(|val| val.as_bool()).unwrap_or_default();
     let res = JsNfsRemoveOptions{recursive};
     Ok(res)
   }
@@ -400,7 +502,7 @@ impl FromNapiValue for JsNfsCreateWritableOptions {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let keep_existing_data = obj.get(FIELD_KEEP_EXISTING_DATA).and_then(|val| Some(val.as_bool().unwrap())).unwrap_or_default();
+    let keep_existing_data = obj.get(FIELD_KEEP_EXISTING_DATA).and_then(|val| val.as_bool()).unwrap_or_default();
     let res = JsNfsCreateWritableOptions{keep_existing_data};
     Ok(res)
   }
@@ -486,9 +588,9 @@ impl FromNapiValue for JsNfsHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let kind = obj.get(FIELD_KIND).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or_default();
-    let name = obj.get(FIELD_NAME).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or_default();
-    let res = JsNfsHandle{nfs: None, path: name.clone(), kind: kind.clone(), name: name.clone()};
+    let kind = obj.get(FIELD_KIND).and_then(|val| val.as_str()).unwrap_or_default();
+    let name = obj.get(FIELD_NAME).and_then(|val| val.as_str()).unwrap_or_default();
+    let res = JsNfsHandle{nfs: None, path: name.to_string(), kind: kind.to_string(), name: name.to_string()};
     Ok(res)
   }
 }
@@ -715,10 +817,10 @@ impl FromNapiValue for JsNfsDirectoryHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let _kind = obj.get(FIELD_KIND).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or(KIND_DIRECTORY.to_string());
+    let _kind = obj.get(FIELD_KIND).and_then(|val| val.as_str()).unwrap_or(KIND_DIRECTORY);
     // TODO: check whether _kind matches KIND_DIRECTORY and, if not, return error?
-    let name = obj.get(FIELD_NAME).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or_default();
-    let res = JsNfsDirectoryHandle::with_initial_name(name.clone());
+    let name = obj.get(FIELD_NAME).and_then(|val| val.as_str()).unwrap_or_default();
+    let res = JsNfsDirectoryHandle::with_initial_name(name.to_string());
     Ok(res)
   }
 }
@@ -807,10 +909,10 @@ impl FromNapiValue for JsNfsFileHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
     let obj = from_napi_to_map(env, napi_val)?;
-    let _kind = obj.get(FIELD_KIND).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or(KIND_FILE.to_string());
+    let _kind = obj.get(FIELD_KIND).and_then(|val| val.as_str()).unwrap_or(KIND_FILE);
     // TODO: check whether _kind matches KIND_FILE and, if not, return error?
-    let name = obj.get(FIELD_NAME).and_then(|val| Some(val.as_str().unwrap().to_string())).unwrap_or_default();
-    let res = JsNfsFileHandle::with_initial_name(name.clone());
+    let name = obj.get(FIELD_NAME).and_then(|val| val.as_str()).unwrap_or_default();
+    let res = JsNfsFileHandle::with_initial_name(name.to_string());
     Ok(res)
   }
 }
@@ -850,11 +952,19 @@ impl JsNfsFile {
 
   pub fn with_initial_name(name: String) -> Self {
     let size: i64 = match name.as_str() {
+      "writable-write-string-after-truncate-via-write" => 22,
       "writable-write-string-after-truncate" => 22,
+      "writable-seek-past-size-and-write-string-via-write" => 11,
+      "writable-seek-and-write-string-via-write" => 11,
+      "writable-write-string-after-seek-via-write" => 11,
       "writable-write-string-after-seek" => 11,
+      "writable-append-string-via-struct" => 27,
       "writable-append-string" => 27,
+      "writable-write-strings-via-struct" => 41,
       "writable-write-strings" => 41,
+      "writable-write-string-via-struct" => 23,
       "writable-write-string" => 23,
+      "writable-truncate-via-write" => 5,
       "writable-truncate" => 5,
       _ => 123
     };
@@ -898,11 +1008,19 @@ impl JsNfsFile {
       return Ok(buffer.to_vec());
     }
     let res = match self.name.as_str() {
+      "writable-write-string-after-truncate-via-write" => "hellbound troublemaker",
       "writable-write-string-after-truncate" => "hellbound troublemaker",
+      "writable-seek-past-size-and-write-string-via-write" => "hello there",
+      "writable-seek-and-write-string-via-write" => "hello there",
+      "writable-write-string-after-seek-via-write" => "hello there",
       "writable-write-string-after-seek" => "hello there",
+      "writable-append-string-via-struct" => "salutations from javascript",
       "writable-append-string" => "salutations from javascript",
+      "writable-write-strings-via-struct" => "hello rust, how are you on this fine day?",
       "writable-write-strings" => "hello rust, how are you on this fine day?",
+      "writable-write-string-via-struct" => "happy days, all is well",
       "writable-write-string" => "happy days, all is well",
+      "writable-truncate-via-write" => "hello",
       "writable-truncate" => "hello",
       _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count."
     };

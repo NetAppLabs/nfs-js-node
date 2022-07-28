@@ -458,6 +458,122 @@ test('should return non-locked writable when creating writable and keeping exist
   await rootHandle.removeEntry(fileHandle.name);
 })
 
+test('should return error when writing unsupported type', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-type", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write(69));
+  t.is(err?.message, "Writing unsupported type");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+// TODO
+test.failing('should return error when writing blob', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-blob", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write(new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"})));
+  t.is(err?.message, "Writing blob is not implemented yet");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+// TODO
+test.failing('should return error when writing typed array', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write(new Int8Array(8)));
+  t.is(err?.message, "Writing typed array is not implemented yet");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+// TODO
+test.failing('should return error when writing data view', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-data-view", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write(new DataView(new ArrayBuffer(16), 0)));
+  t.is(err?.message, "Writing data view is not implemented yet");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+// TODO
+test.failing('should return error when writing array buffer', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-array-buffer", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write(new ArrayBuffer(16)));
+  t.is(err?.message, "Writing array buffer is not implemented yet");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should return error when writing unsupported object type', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-type", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write({}));
+  t.is(err?.message, "Writing unsupported type");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should return error when writing unsupported object data type object', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-data-type", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write({type: "write", data: {}}));
+  t.is(err?.message, "Writing unsupported data type");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should return error when writing unsupported object data type', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-data-type", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write({type: "write", data: 7}));
+  t.is(err?.message, "Property data of type object or string is required when writing object with type='write'");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+// TODO
+test.failing('should return error when writing blob via struct', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-blob-via-struct", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write({type: "write", data: new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"})}));
+  t.is(err?.message, "Writing blob is not implemented yet");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+// TODO
+test.failing('should return error when writing typed array via struct', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array-via-struct", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write({type: "write", data: new Int8Array(8)}));
+  t.is(err?.message, "Writing typed array is not implemented yet");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+// TODO
+test.failing('should return error when writing data view via struct', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-data-view-via-struct", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write({type: "write", data: new DataView(new ArrayBuffer(16), 0)}));
+  t.is(err?.message, "Writing data view is not implemented yet");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+// TODO
+test.failing('should return error when writing array buffer via struct', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-array-buffer-via-struct", {create: true});
+  const writable = await fileHandle.createWritable();
+  let err = await t.throwsAsync(writable.write({type: "write", data: new ArrayBuffer(16)}));
+  t.is(err?.message, "Writing array buffer is not implemented yet");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
 test('should succeed when not keeping existing data and writing string', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string", {create: true});
@@ -465,6 +581,20 @@ test('should succeed when not keeping existing data and writing string', async (
   await t.notThrowsAsync(writable.write("hello rust, all is well"));
   const overwritable = await fileHandle.createWritable();
   await t.notThrowsAsync(overwritable.write("happy days"));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 23);
+  const text = await file.text();
+  t.is(text, "happy days, all is well");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when not keeping existing data and writing string via struct', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-string-via-struct", {create: true});
+  const writable = await fileHandle.createWritable();
+  await t.notThrowsAsync(writable.write({type: "write", data: "hello rust, all is well"}));
+  const overwritable = await fileHandle.createWritable();
+  await t.notThrowsAsync(overwritable.write({type: "write", data: "happy days"}));
   const file = await fileHandle.getFile();
   t.is(file.size, 23);
   const text = await file.text();
@@ -486,6 +616,20 @@ test('should succeed when keeping existing data and writing string', async (t) =
   await rootHandle.removeEntry(fileHandle.name);
 })
 
+test('should succeed when keeping existing data and writing string via struct', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-append-string-via-struct", {create: true});
+  const writable = await fileHandle.createWritable();
+  await t.notThrowsAsync(writable.write({type: "write", data: "salutations"}));
+  const appendable = await fileHandle.createWritable({keepExistingData: true});
+  await t.notThrowsAsync(appendable.write({type: "write", data: " from javascript"}));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 27);
+  const text = await file.text();
+  t.is(text, "salutations from javascript");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
 test('should succeed when writing string multiple times', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-strings", {create: true});
@@ -493,6 +637,20 @@ test('should succeed when writing string multiple times', async (t) => {
   await t.notThrowsAsync(writable.write("hello rust,"));
   await t.notThrowsAsync(writable.write(" how are you"));
   await t.notThrowsAsync(writable.write(" on this fine day?"));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 41);
+  const text = await file.text();
+  t.is(text, "hello rust, how are you on this fine day?");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when writing string multiple times via struct', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-strings-via-struct", {create: true});
+  const writable = await fileHandle.createWritable();
+  await t.notThrowsAsync(writable.write({type: "write", data: "hello rust,"}));
+  await t.notThrowsAsync(writable.write({type: "write", data: " how are you"}));
+  await t.notThrowsAsync(writable.write({type: "write", data: " on this fine day?"}));
   const file = await fileHandle.getFile();
   t.is(file.size, 41);
   const text = await file.text();
@@ -510,12 +668,31 @@ test('should return error when seeking past size of file', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
+test('should return error when seeking past size of file via write', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-seek-past-size-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  let err = await t.throwsAsync(writable.write({type: "seek", position: 600}));
+  t.is(err?.message, "Seeking past size");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
 test('should succeed when seeking position', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-seek", {create: true});
   const writable = await fileHandle.createWritable();
   await writable.write("hello rust");
   await t.notThrowsAsync(writable.seek(6));
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when seeking position via write', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-seek-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.write({type: "seek", position: 6}));
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -526,6 +703,51 @@ test('should succeed when writing string after seek', async (t) => {
   await writable.write("hello rust");
   await t.notThrowsAsync(writable.seek(6));
   await writable.write("there");
+  const file = await fileHandle.getFile();
+  t.is(file.size, 11);
+  const text = await file.text();
+  t.is(text, "hello there");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when writing string after seek via write', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-seek-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.write({type: "seek", position: 6}));
+  await writable.write("there");
+  const file = await fileHandle.getFile();
+  t.is(file.size, 11);
+  const text = await file.text();
+  t.is(text, "hello there");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should return error when seeking past size of file and writing string via write', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-seek-past-size-and-write-string-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  // seek before seek-and-write to verify below that position doesn't change after failed seek-and-write
+  await t.notThrowsAsync(writable.write({type: "seek", position: 6}));
+  let err = await t.throwsAsync(writable.write({type: "write", position: 600, data: "there"}));
+  t.is(err?.message, "Seeking past size");
+  await writable.write("the");
+  await writable.write({type: "write", data: "re"});
+  const file = await fileHandle.getFile();
+  t.is(file.size, 11);
+  const text = await file.text();
+  t.is(text, "hello there");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when seeking and writing string via write', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-seek-and-write-string-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.write({type: "write", position: 6, data: "there"}));
   const file = await fileHandle.getFile();
   t.is(file.size, 11);
   const text = await file.text();
@@ -546,12 +768,39 @@ test('should succeed when truncating size', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
+test('should succeed when truncating size via write', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-truncate-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.write({type: "truncate", size: 5}));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 5);
+  const text = await file.text();
+  t.is(text, "hello");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
 test('should succeed when writing string after truncating size', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-truncate", {create: true});
   const writable = await fileHandle.createWritable();
   await writable.write("hello rust");
   await t.notThrowsAsync(writable.truncate(4));
+  await writable.write("bound troublemaker");
+  const file = await fileHandle.getFile();
+  t.is(file.size, 22);
+  const text = await file.text();
+  t.is(text, "hellbound troublemaker");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test('should succeed when writing string after truncating size via write', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-truncate-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.write({type: "truncate", size: 4}));
   await writable.write("bound troublemaker");
   const file = await fileHandle.getFile();
   t.is(file.size, 22);
