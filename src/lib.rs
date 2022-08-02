@@ -295,7 +295,7 @@ impl JsNfsWritableFileStream {
     Err(Error::new(Status::GenericFailure, "Writing data view is not implemented yet".to_string()))
   }
 
-  fn nfs_write_array_buffer(&mut self, _byte_length: i64, _data_view: &Map<String, Value>) -> napi::Result<Undefined> {
+  fn nfs_write_array_buffer(&mut self, _byte_length: i64, _array_buffer: &Map<String, Value>) -> napi::Result<Undefined> {
     Err(Error::new(Status::GenericFailure, "Writing array buffer is not implemented yet".to_string()))
   }
 
