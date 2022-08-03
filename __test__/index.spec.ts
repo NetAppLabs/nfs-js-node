@@ -144,8 +144,7 @@ test('should be granted readwrite permission when requesting on file', async (t)
   t.is(perm, "granted");
 })
 
-// TODO
-test.failing('should iterate through directory', async (t) => {
+test('should iterate through directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const expectedEntries = [
     {key: "3", value: {kind: "file", name: "3"}},

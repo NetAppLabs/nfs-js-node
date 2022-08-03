@@ -138,6 +138,7 @@ struct JsNfsDirectoryHandleEntries {
   count: usize
 }
 
+#[napi]
 impl Generator for JsNfsDirectoryHandleEntries {
 
   type Yield = Vec<Value>;
@@ -168,6 +169,7 @@ struct JsNfsDirectoryHandleKeys {
   count: usize
 }
 
+#[napi]
 impl Generator for JsNfsDirectoryHandleKeys {
 
   type Yield = String;
@@ -193,6 +195,7 @@ struct JsNfsDirectoryHandleValues {
   count: usize
 }
 
+#[napi]
 impl Generator for JsNfsDirectoryHandleValues {
 
   type Yield = Either<JsNfsDirectoryHandle, JsNfsFileHandle>;
@@ -604,11 +607,10 @@ impl From<Object> for JsNfsHandle {
   }
 }
 
-#[napi]
+#[napi(iterator)]
 struct JsNfsDirectoryHandle {
   handle: JsNfsHandle,
-  #[napi(js_name="[Symbol.asyncIterator]", ts_type="JsNfsDirectoryHandle['entries']")]
-  pub iter: Value,
+  iter: Option<JsNfsDirectoryHandleEntries>,
   #[napi(readonly, ts_type="'directory'")]
   pub kind: String,
   #[napi(readonly)]
@@ -813,6 +815,27 @@ impl JsNfsDirectoryHandle {
   }
 }
 
+#[napi]
+impl Generator for JsNfsDirectoryHandle {
+
+  type Yield = Vec<Value>;
+
+  type Next = Undefined;
+
+  type Return = Undefined;
+
+  fn next(&mut self, _: Option<Self::Next>) -> Option<Self::Yield> {
+    if self.iter.is_none() {
+      self.iter = Some(self.entries().unwrap());
+    }
+    let res = self.iter.as_mut().unwrap().next(None);
+    if res.is_none() {
+      self.iter = None;
+    }
+    res
+  }
+}
+
 impl FromNapiValue for JsNfsDirectoryHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
@@ -838,7 +861,7 @@ impl Into<Value> for JsNfsDirectoryHandle {
 impl From<JsNfsHandle> for JsNfsDirectoryHandle {
 
   fn from(handle: JsNfsHandle) -> Self {
-    JsNfsDirectoryHandle{iter: Value::Null, kind: handle.kind.clone(), name: handle.name.clone(), handle: handle.clone()}
+    JsNfsDirectoryHandle{kind: handle.kind.clone(), name: handle.name.clone(), handle: handle.clone(), iter: None}
   }
 }
 
