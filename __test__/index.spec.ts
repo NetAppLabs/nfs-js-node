@@ -364,6 +364,7 @@ test('should return array buffer for file', async (t) => {
   const file = await fileHandle.getFile();
   const buf = await file.arrayBuffer();
   t.is(buf.byteLength, 123);
+  t.is(String.fromCharCode.apply(null, new Uint8Array(buf)), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
 test('should return array buffer for blob', async (t) => {
@@ -373,6 +374,7 @@ test('should return array buffer for blob', async (t) => {
   const blob = file.slice();
   const buf = await blob.arrayBuffer();
   t.is(buf.byteLength, 123);
+  t.is(String.fromCharCode.apply(null, new Uint8Array(buf)), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
 test('should return stream for file', async (t) => {
@@ -476,8 +478,7 @@ test.failing('should return error when writing blob', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-// TODO
-test.failing('should return error when writing typed array', async (t) => {
+test('should return error when writing typed array', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array", {create: true});
   const writable = await fileHandle.createWritable();
@@ -543,8 +544,7 @@ test.failing('should return error when writing blob via struct', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-// TODO
-test.failing('should return error when writing typed array via struct', async (t) => {
+test('should return error when writing typed array via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array-via-struct", {create: true});
   const writable = await fileHandle.createWritable();

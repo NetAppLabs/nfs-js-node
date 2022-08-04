@@ -143,9 +143,9 @@ impl Generator for JsNfsDirectoryHandleEntries {
 
   type Yield = Vec<Value>;
 
-  type Next = Undefined;
+  type Next = ();
 
-  type Return = Undefined;
+  type Return = ();
 
   fn next(&mut self, _: Option<Self::Next>) -> Option<Self::Yield> {
     if self.entries.len() <= self.count {
@@ -174,9 +174,9 @@ impl Generator for JsNfsDirectoryHandleKeys {
 
   type Yield = String;
 
-  type Next = Undefined;
+  type Next = ();
 
-  type Return = Undefined;
+  type Return = ();
 
   fn next(&mut self, _: Option<Self::Next>) -> Option<Self::Yield> {
     if self.entries.len() <= self.count {
@@ -200,9 +200,9 @@ impl Generator for JsNfsDirectoryHandleValues {
 
   type Yield = Either<JsNfsDirectoryHandle, JsNfsFileHandle>;
 
-  type Next = Undefined;
+  type Next = ();
 
-  type Return = Undefined;
+  type Return = ();
 
   fn next(&mut self, _: Option<Self::Next>) -> Option<Self::Yield> {
     if self.entries.len() <= self.count {
@@ -248,19 +248,28 @@ impl JsNfsWritableFileStream {
     if let Some(data) = obj.get(FIELD_DATA) {
       return self.try_write_data(data);
     }
-    Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()))
+    if is_blob(obj) {
+      return self.nfs_write_blob(obj);
+    } else if is_typed_array(obj) {
+      return self.nfs_write_typed_array(obj);
+    } else if is_data_view(obj) {
+      return self.nfs_write_data_view(obj);
+    } else if is_array_buffer(obj) {
+      return self.nfs_write_array_buffer(obj);
+    }
+    return Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()));
   }
 
   fn try_write_data(&mut self, data: &Value) -> napi::Result<Undefined> {
-    if let Some(data) = data.as_object() {
-      if let Some(_type) = data.get(FIELD_TYPE).and_then(|t| t.as_str()) {
-        return self.nfs_write_blob(_type, data);
-      } else if let Some(length) = data.get(FIELD_LENGTH).and_then(|l| l.as_i64()) {
-        return self.nfs_write_typed_array(length, data);
-      } else if let Some(buffer) = data.get(FIELD_BUFFER).and_then(|b| b.as_object()) {
-        return self.nfs_write_data_view(buffer, data);
-      } else if let Some(byte_length) = data.get(FIELD_BYTE_LENGTH).and_then(|bl| bl.as_i64()) {
-        return self.nfs_write_array_buffer(byte_length, data);
+    if let Some(obj) = data.as_object() {
+      if is_blob(obj) {
+        return self.nfs_write_blob(obj);
+      } else if is_typed_array(obj) {
+        return self.nfs_write_typed_array(obj);
+      } else if is_data_view(obj) {
+        return self.nfs_write_data_view(obj);
+      } else if is_array_buffer(obj) {
+        return self.nfs_write_array_buffer(obj);
       }
       return Err(Error::new(Status::InvalidArg, "Writing unsupported data type".to_string()));
     } else if let Some(data) = data.as_str() {
@@ -286,19 +295,19 @@ impl JsNfsWritableFileStream {
     Ok(())
   }
 
-  fn nfs_write_blob(&mut self, _type: &str, _blob: &Map<String, Value>) -> napi::Result<Undefined> {
+  fn nfs_write_blob(&mut self, _blob: &Map<String, Value>) -> napi::Result<Undefined> {
     Err(Error::new(Status::GenericFailure, "Writing blob is not implemented yet".to_string()))
   }
 
-  fn nfs_write_typed_array(&mut self, _length: i64, _typed_array: &Map<String, Value>) -> napi::Result<Undefined> {
+  fn nfs_write_typed_array(&mut self, _typed_array: &Map<String, Value>) -> napi::Result<Undefined> {
     Err(Error::new(Status::GenericFailure, "Writing typed array is not implemented yet".to_string()))
   }
 
-  fn nfs_write_data_view(&mut self, _buffer: &Map<String, Value>, _data_view: &Map<String, Value>) -> napi::Result<Undefined> {
+  fn nfs_write_data_view(&mut self, _data_view: &Map<String, Value>) -> napi::Result<Undefined> {
     Err(Error::new(Status::GenericFailure, "Writing data view is not implemented yet".to_string()))
   }
 
-  fn nfs_write_array_buffer(&mut self, _byte_length: i64, _array_buffer: &Map<String, Value>) -> napi::Result<Undefined> {
+  fn nfs_write_array_buffer(&mut self, _array_buffer: &Map<String, Value>) -> napi::Result<Undefined> {
     Err(Error::new(Status::GenericFailure, "Writing array buffer is not implemented yet".to_string()))
   }
 
@@ -396,6 +405,22 @@ impl JsNfsWritableFileStream {
     self.locked = true;
     Ok(res)
   }
+}
+
+fn is_blob(obj: &Map<String, Value>) -> bool {
+  obj.get(FIELD_TYPE).and_then(|t| t.as_str()).is_some()
+}
+
+fn is_typed_array(obj: &Map<String, Value>) -> bool {
+  obj.get(FIELD_LENGTH).and_then(|l| l.as_i64()).is_some() || obj.get("0").is_some() // FIXME: hackey work-around
+}
+
+fn is_data_view(obj: &Map<String, Value>) -> bool {
+  obj.get(FIELD_BUFFER).and_then(|b| b.as_object()).is_some()
+}
+
+fn is_array_buffer(obj: &Map<String, Value>) -> bool {
+  obj.get(FIELD_BYTE_LENGTH).and_then(|bl| bl.as_i64()).is_some()
 }
 
 #[napi]
@@ -820,9 +845,9 @@ impl Generator for JsNfsDirectoryHandle {
 
   type Yield = Vec<Value>;
 
-  type Next = Undefined;
+  type Next = ();
 
-  type Return = Undefined;
+  type Return = ();
 
   fn next(&mut self, _: Option<Self::Next>) -> Option<Self::Yield> {
     if self.iter.is_none() {
@@ -1006,9 +1031,8 @@ impl JsNfsFile {
   }
 
   #[napi(ts_return_type="Promise<ArrayBuffer>")]
-  pub async fn array_buffer(&self) -> napi::Result<Value> {
-    let res = self.to_blob().array_buffer().await?;
-    Ok(res)
+  pub fn array_buffer(&self) -> AsyncTask<JsNfsFileArrayBuffer> {
+    AsyncTask::new(JsNfsFileArrayBuffer(JsNfsFile{handle: self.handle.clone(), size: self.size, _type: self._type.clone(), last_modified: self.last_modified, name: self.name.clone()}))
   }
 
   #[napi]
@@ -1057,6 +1081,25 @@ impl JsNfsFile {
   }
 }
 
+struct JsNfsFileArrayBuffer(JsNfsFile);
+
+#[napi]
+impl napi::Task for JsNfsFileArrayBuffer {
+
+  type Output = Vec<u8>;
+
+  type JsValue = napi::JsArrayBuffer;
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    self.0.nfs_bytes()
+  }
+
+  fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    let res = env.create_arraybuffer_with_data(output)?.into_raw();
+    Ok(res)
+  }
+}
+
 #[napi]
 struct JsNfsBlob {
   content: Vec<u8>,
@@ -1070,11 +1113,8 @@ struct JsNfsBlob {
 impl JsNfsBlob {
 
   #[napi(ts_return_type="Promise<ArrayBuffer>")]
-  pub async fn array_buffer(&self) -> napi::Result<Value> {
-    let mut obj: Map<String, Value> = Map::new();
-    let _ = obj.insert("byteLength".to_string(), self.size.into());
-    let res = Value::Object(obj);
-    Ok(res)
+  pub fn array_buffer(&self) -> AsyncTask<JsNfsBlobArrayBuffer> {
+    AsyncTask::new(JsNfsBlobArrayBuffer(JsNfsBlob{content: self.content.clone(), size: self.size, _type: self._type.clone()}))
   }
 
   fn get_index_from_optional(&self, pos: Option<i64>, max: i64, def: i64) -> usize {
@@ -1101,7 +1141,7 @@ impl JsNfsBlob {
   }
 
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
-  pub fn stream(&self) -> napi::Result<Value> {
+  pub fn stream(&self) -> napi::Result<Value> { // TODO
     let mut obj: Map<String, Value> = Map::new();
     let _ = obj.insert("locked".to_string(), true.into());
     let res = Value::Object(obj);
@@ -1111,6 +1151,25 @@ impl JsNfsBlob {
   #[napi]
   pub async fn text(&self) -> napi::Result<String> {
     let res = str::from_utf8(&self.content.clone()).unwrap().to_string();
+    Ok(res)
+  }
+}
+
+struct JsNfsBlobArrayBuffer(JsNfsBlob);
+
+#[napi]
+impl napi::Task for JsNfsBlobArrayBuffer {
+
+  type Output = Vec<u8>;
+
+  type JsValue = napi::JsArrayBuffer;
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    Ok(self.0.content.clone())
+  }
+
+  fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    let res = env.create_arraybuffer_with_data(output)?.into_raw();
     Ok(res)
   }
 }
