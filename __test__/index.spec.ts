@@ -4,7 +4,7 @@ import { JsNfsDirectoryHandle } from '../index'
 
 const nfsURL = "nfs://127.0.0.1/Users/Shared/nfs/";
 
-test('should convert directory handle to handle', async (t) => {
+test.serial('should convert directory handle to handle', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first");
   const handle = dirHandle.toHandle();
@@ -13,7 +13,7 @@ test('should convert directory handle to handle', async (t) => {
   t.is(handle.name, dirHandle.name);
 })
 
-test('should convert file handle to handle', async (t) => {
+test.serial('should convert file handle to handle', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const handle = fileHandle.toHandle();
@@ -22,7 +22,7 @@ test('should convert file handle to handle', async (t) => {
   t.is(handle.name, fileHandle.name);
 })
 
-test('should be same entry as self for directory', async (t) => {
+test.serial('should be same entry as self for directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first");
   const handle = dirHandle.toHandle();
@@ -30,7 +30,7 @@ test('should be same entry as self for directory', async (t) => {
   t.true(handle.isSameEntry(dirHandle));
 })
 
-test('should not be same entry as others for directory', async (t) => {
+test.serial('should not be same entry as others for directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const dirHandle = await rootHandle.getDirectoryHandle("first");
@@ -41,7 +41,7 @@ test('should not be same entry as others for directory', async (t) => {
   t.false(handle.isSameEntry(rootHandle));
 })
 
-test('should be same entry as self for file', async (t) => {
+test.serial('should be same entry as self for file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const handle = fileHandle.toHandle();
@@ -49,7 +49,7 @@ test('should be same entry as self for file', async (t) => {
   t.true(handle.isSameEntry(fileHandle));
 })
 
-test('should not be same entry as others for file', async (t) => {
+test.serial('should not be same entry as others for file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const fileHandle2 = await rootHandle.getFileHandle("3");
@@ -60,91 +60,91 @@ test('should not be same entry as others for file', async (t) => {
   t.false(handle.isSameEntry(rootHandle));
 })
 
-test('should be granted read permission when querying on directory', async (t) => {
+test.serial('should be granted read permission when querying on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first");
   const perm = await dirHandle.queryPermission({mode: "read"});
   t.is(perm, "granted");
 })
 
-test('should be granted readwrite permission when querying on directory', async (t) => {
+test.serial('should be granted readwrite permission when querying on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first");
   const perm = await dirHandle.queryPermission({mode: "readwrite"});
   t.is(perm, "granted");
 })
 
-test('should be granted read permission when querying on read-only directory', async (t) => {
+test.serial('should be granted read permission when querying on read-only directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("quatre");
   const perm = await dirHandle.queryPermission({mode: "read"});
   t.is(perm, "granted");
 })
 
-test('should be denied readwrite permission when querying on read-only directory', async (t) => {
+test.serial('should be denied readwrite permission when querying on read-only directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("quatre");
   const perm = await dirHandle.queryPermission({mode: "readwrite"});
   t.is(perm, "denied");
 })
 
-test('should be granted read permission when requesting on directory', async (t) => {
+test.serial('should be granted read permission when requesting on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first");
   const perm = await dirHandle.requestPermission({mode: "read"});
   t.is(perm, "granted");
 })
 
-test('should be granted readwrite permission when requesting on directory', async (t) => {
+test.serial('should be granted readwrite permission when requesting on directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first");
   const perm = await dirHandle.requestPermission({mode: "readwrite"});
   t.is(perm, "granted");
 })
 
-test('should be granted read permission when querying on file', async (t) => {
+test.serial('should be granted read permission when querying on file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const perm = await fileHandle.queryPermission({mode: "read"});
   t.is(perm, "granted");
 })
 
-test('should be granted readwrite permission when querying on file', async (t) => {
+test.serial('should be granted readwrite permission when querying on file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const perm = await fileHandle.queryPermission({mode: "readwrite"});
   t.is(perm, "granted");
 })
 
-test('should be granted read permission when querying on read-only file', async (t) => {
+test.serial('should be granted read permission when querying on read-only file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("3");
   const perm = await fileHandle.queryPermission({mode: "read"});
   t.is(perm, "granted");
 })
 
-test('should be denied readwrite permission when querying on read-only file', async (t) => {
+test.serial('should be denied readwrite permission when querying on read-only file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("3");
   const perm = await fileHandle.queryPermission({mode: "readwrite"});
   t.is(perm, "denied");
 })
 
-test('should be granted read permission when requesting on file', async (t) => {
+test.serial('should be granted read permission when requesting on file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const perm = await fileHandle.requestPermission({mode: "read"});
   t.is(perm, "granted");
 })
 
-test('should be granted readwrite permission when requesting on file', async (t) => {
+test.serial('should be granted readwrite permission when requesting on file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const perm = await fileHandle.requestPermission({mode: "readwrite"});
   t.is(perm, "granted");
 })
 
-test('should iterate through directory', async (t) => {
+test.serial('should iterate through directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const expectedEntries = [
     {key: "3", value: {kind: "file", name: "3"}},
@@ -165,9 +165,10 @@ test('should iterate through directory', async (t) => {
     t.is(value.name, expectedEntries[i].value.name);
     i++
   }
+  t.is(i, expectedEntries.length);
 })
 
-test('should iterate through entries', async (t) => {
+test.serial('should iterate through entries', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const expectedEntries = [
     {key: "3", value: {kind: "file", name: "3"}},
@@ -188,9 +189,10 @@ test('should iterate through entries', async (t) => {
     t.is(value.name, expectedEntries[i].value.name);
     i++
   }
+  t.is(i, expectedEntries.length);
 })
 
-test('should iterate through keys', async (t) => {
+test.serial('should iterate through keys', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const expectedKeys = ["3", "annar", "quatre", "first", "..", "."];
   let i = 0;
@@ -201,9 +203,10 @@ test('should iterate through keys', async (t) => {
     }
     t.is(key, expectedKeys[i++]);
   }
+  t.is(i, expectedKeys.length);
 })
 
-test('should iterate through values', async (t) => {
+test.serial('should iterate through values', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const expectedValues = [
     {kind: "file", name: "3"},
@@ -223,22 +226,23 @@ test('should iterate through values', async (t) => {
     t.is(name, expectedValues[i].name);
     i++
   }
+  t.is(i, expectedValues.length);
 })
 
-test('should return error when getting unknown directory', async (t) => {
+test.serial('should return error when getting unknown directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const err = await t.throwsAsync(rootHandle.getDirectoryHandle("unknown"));
   t.is(err?.message, 'Directory "unknown" not found');
 })
 
-test('should return directory when getting existing directory', async (t) => {
+test.serial('should return directory when getting existing directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first");
   t.is(dirHandle.kind, "directory");
   t.is(dirHandle.name, "first");
 })
 
-test('should return directory when creating new directory', async (t) => {
+test.serial('should return directory when creating new directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("newlywed", {create: true});
   t.is(dirHandle.kind, "directory");
@@ -246,20 +250,20 @@ test('should return directory when creating new directory', async (t) => {
   await rootHandle.removeEntry(dirHandle.name);
 })
 
-test('should return directory when "creating" existing directory', async (t) => {
+test.serial('should return directory when "creating" existing directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first", {create: true});
   t.is(dirHandle.kind, "directory");
   t.is(dirHandle.name, "first");
 })
 
-test('should return error when getting unknown file', async (t) => {
+test.serial('should return error when getting unknown file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const err = await t.throwsAsync(rootHandle.getFileHandle("unknown"));
   t.is(err?.message, 'File "unknown" not found');
 })
 
-test('should return file when getting existing file', async (t) => {
+test.serial('should return file when getting existing file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   for (const name of ["annar", "3"]) {
     const dirHandle = await rootHandle.getFileHandle(name);
@@ -268,7 +272,7 @@ test('should return file when getting existing file', async (t) => {
   }
 })
 
-test('should return file when creating new file', async (t) => {
+test.serial('should return file when creating new file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("newfoundland", {create: true});
   t.is(fileHandle.kind, "file");
@@ -276,7 +280,7 @@ test('should return file when creating new file', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return file when "creating" existing file', async (t) => {
+test.serial('should return file when "creating" existing file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   for (const name of ["annar", "3"]) {
     const dirHandle = await rootHandle.getFileHandle(name, {create: true});
@@ -285,70 +289,99 @@ test('should return file when "creating" existing file', async (t) => {
   }
 })
 
-test('should return error when removing non-empty directory', async (t) => {
+test.serial('should return error when removing non-empty directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const err = await t.throwsAsync(rootHandle.removeEntry("first"));
   t.is(err?.message, 'Directory "first" is not empty');
 })
 
-test('should return error when removing unknown entry', async (t) => {
+test.serial('should return error when removing unknown entry', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const err = await t.throwsAsync(rootHandle.removeEntry("unknown"));
   t.is(err?.message, 'Entry "unknown" not found');
 })
 
-test('should succeed when removing file', async (t) => {
+test.serial('should succeed when removing file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("doomed", {create: true});
   await t.notThrowsAsync(rootHandle.removeEntry(fileHandle.name));
 })
 
-test('should return error when removing unknown entry recursively', async (t) => {
+test.serial('should return error when removing unknown entry recursively', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const err = await t.throwsAsync(rootHandle.removeEntry("unknown", {recursive: true}));
   t.is(err?.message, 'Entry "unknown" not found');
 })
 
-test('should succeed when removing recursively non-empty directory', async (t) => {
+test.serial('should succeed when removing recursively non-empty directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("condemned", {create: true});
   await t.notThrowsAsync(dirHandle.getFileHandle("asylum", {create: true}))
   await t.notThrowsAsync(rootHandle.removeEntry(dirHandle.name, {recursive: true}));
 })
 
-test('should succeed when removing recursively empty directory', async (t) => {
+test.serial('should succeed when removing recursively empty directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("terminal", {create: true});
   await t.notThrowsAsync(rootHandle.removeEntry(dirHandle.name, {recursive: true}));
 })
 
-test('should return null when resolving unknown directory', async (t) => {
+test.serial('should return null when resolving unknown directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const resolved = await rootHandle.resolve({kind: "directory", name: "unknown"});
   t.deepEqual(resolved, null);
 })
 
-test('should return null when resolving unknown file', async (t) => {
+test.serial('should return null when resolving unknown file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const resolved = await rootHandle.resolve({kind: "file", name: "unknown"});
   t.deepEqual(resolved, null);
 })
 
-test('should return non-null when resolving known directory', async (t) => {
+test.serial('should return non-null when resolving known directory', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const resolved = await rootHandle.resolve({kind: "directory", name: "first"});
   t.deepEqual(resolved, ["first"]);
 })
 
-test('should return non-null when resolving known file', async (t) => {
+test.serial('should return non-null when resolving known directory using handle', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const handle = dirHandle.toHandle();
+  const resolved = await rootHandle.resolve(handle);
+  t.deepEqual(resolved, ["first"]);
+})
+
+test.serial('should return non-null when resolving known file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   for (const name of ["annar", "3"]) {
     const resolved = await rootHandle.resolve({kind: "file", name});
     t.deepEqual(resolved, [name]);
   }
+  for (const {dir, name} of [{dir: "first", name: "comment"}, {dir: "quatre", name: "points"}]) {
+    const resolved = await rootHandle.resolve({kind: "file", name});
+    t.deepEqual(resolved, [dir, name]);
+  }
 })
 
-test('should return file for file handle', async (t) => {
+test.serial('should return non-null when resolving known file using handle', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  for (const name of ["annar", "3"]) {
+    const fileHandle = await rootHandle.getFileHandle(name);
+    const handle = fileHandle.toHandle();
+    const resolved = await rootHandle.resolve(handle);
+    t.deepEqual(resolved, [name]);
+  }
+  for (const {dir, name} of [{dir: "first", name: "comment"}, {dir: "quatre", name: "points"}]) {
+    const dirHandle = await rootHandle.getDirectoryHandle(dir);
+    const fileHandle = await dirHandle.getFileHandle(name);
+    const handle = fileHandle.toHandle();
+    const resolved = await rootHandle.resolve(handle);
+    t.deepEqual(resolved, [dir, name]);
+  }
+})
+
+test.serial('should return file for file handle', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
@@ -358,7 +391,7 @@ test('should return file for file handle', async (t) => {
   t.true(file.lastModified >= 1658159058723);
 })
 
-test('should return array buffer for file', async (t) => {
+test.serial('should return array buffer for file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
@@ -367,7 +400,7 @@ test('should return array buffer for file', async (t) => {
   t.is(String.fromCharCode.apply(null, new Uint8Array(buf)), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
-test('should return array buffer for blob', async (t) => {
+test.serial('should return array buffer for blob', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
@@ -377,7 +410,7 @@ test('should return array buffer for blob', async (t) => {
   t.is(String.fromCharCode.apply(null, new Uint8Array(buf)), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
-test('should return stream for file', async (t) => {
+test.serial('should return stream for file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
@@ -385,7 +418,7 @@ test('should return stream for file', async (t) => {
   t.true(stream.locked);
 })
 
-test('should return stream for blob', async (t) => {
+test.serial('should return stream for blob', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
@@ -394,7 +427,7 @@ test('should return stream for blob', async (t) => {
   t.true(stream.locked);
 })
 
-test('should return text for file', async (t) => {
+test.serial('should return text for file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
@@ -402,7 +435,7 @@ test('should return text for file', async (t) => {
   t.is(text, "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
-test('should return text for blob', async (t) => {
+test.serial('should return text for blob', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
@@ -411,7 +444,7 @@ test('should return text for blob', async (t) => {
   t.is(text, "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
-test('should return blob when slicing file', async (t) => {
+test.serial('should return blob when slicing file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
@@ -427,7 +460,7 @@ test('should return blob when slicing file', async (t) => {
   t.is(texty, "make sure that this file is exactly 123 bytes in size");
 })
 
-test('should return blob when slicing blob', async (t) => {
+test.serial('should return blob when slicing blob', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
@@ -443,7 +476,7 @@ test('should return blob when slicing blob', async (t) => {
   t.is(texty, "In order to make");
 })
 
-test('should return non-locked writable when creating writable and not keeping existing data', async (t) => {
+test.serial('should return non-locked writable when creating writable and not keeping existing data', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-overwrite", {create: true});
   const writable = await fileHandle.createWritable();
@@ -451,7 +484,7 @@ test('should return non-locked writable when creating writable and not keeping e
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return non-locked writable when creating writable and keeping existing data', async (t) => {
+test.serial('should return non-locked writable when creating writable and keeping existing data', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-append", {create: true});
   const writable = await fileHandle.createWritable({keepExistingData: true});
@@ -459,121 +492,115 @@ test('should return non-locked writable when creating writable and keeping exist
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when writing unsupported type', async (t) => {
+test.serial('should return error when writing unsupported type', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-type", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write(69));
+  const err = t.throws(function() { writable.write(69); });
   t.is(err?.message, "Writing unsupported type");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-// TODO
-test.failing('should return error when writing blob', async (t) => {
+test.serial('should return error when writing blob', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-blob", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write(new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"})));
+  const err = await t.throwsAsync(writable.write(new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"})));
   t.is(err?.message, "Writing blob is not implemented yet");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when writing typed array', async (t) => {
+test.serial('should return error when writing typed array', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write(new Int8Array(8)));
+  const err = await t.throwsAsync(writable.write(new Int8Array(8)));
   t.is(err?.message, "Writing typed array is not implemented yet");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-// TODO
-test.failing('should return error when writing data view', async (t) => {
+test.serial('should return error when writing data view', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-data-view", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write(new DataView(new ArrayBuffer(16), 0)));
+  const err = await t.throwsAsync(writable.write(new DataView(new ArrayBuffer(16), 0)));
   t.is(err?.message, "Writing data view is not implemented yet");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-// TODO
-test.failing('should return error when writing array buffer', async (t) => {
+test.serial('should return error when writing array buffer', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-array-buffer", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write(new ArrayBuffer(16)));
+  const err = await t.throwsAsync(writable.write(new ArrayBuffer(16)));
   t.is(err?.message, "Writing array buffer is not implemented yet");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when writing unsupported object type', async (t) => {
+test.serial('should return error when writing unsupported object type', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-type", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write({}));
+  const err = t.throws(function() { writable.write({}); });
   t.is(err?.message, "Writing unsupported type");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when writing unsupported object data type object', async (t) => {
+test.serial('should return error when writing unsupported object data type object', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-data-type", {create: true});
+  const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-data-type-object", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write({type: "write", data: {}}));
+  const err = t.throws(function() { writable.write({type: "write", data: {}}); });
   t.is(err?.message, "Writing unsupported data type");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when writing unsupported object data type', async (t) => {
+test.serial('should return error when writing unsupported object data type', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-data-type", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write({type: "write", data: 7}));
-  t.is(err?.message, "Property data of type object or string is required when writing object with type='write'");
+  const err = t.throws(function() { writable.write({type: "write", data: 7}); });
+  t.is(err?.message, "Writing unsupported data type");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-// TODO
-test.failing('should return error when writing blob via struct', async (t) => {
+test.serial('should return error when writing blob via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-blob-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write({type: "write", data: new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"})}));
+  const err = await t.throwsAsync(writable.write({type: "write", data: new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"})}));
   t.is(err?.message, "Writing blob is not implemented yet");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when writing typed array via struct', async (t) => {
+test.serial('should return error when writing typed array via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write({type: "write", data: new Int8Array(8)}));
+  const err = await t.throwsAsync(writable.write({type: "write", data: new Int8Array(8)}));
   t.is(err?.message, "Writing typed array is not implemented yet");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-// TODO
-test.failing('should return error when writing data view via struct', async (t) => {
+test.serial('should return error when writing data view via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-data-view-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write({type: "write", data: new DataView(new ArrayBuffer(16), 0)}));
+  const err = await t.throwsAsync(writable.write({type: "write", data: new DataView(new ArrayBuffer(16), 0)}));
   t.is(err?.message, "Writing data view is not implemented yet");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-// TODO
-test.failing('should return error when writing array buffer via struct', async (t) => {
+test.serial('should return error when writing array buffer via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-array-buffer-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  let err = await t.throwsAsync(writable.write({type: "write", data: new ArrayBuffer(16)}));
+  const err = await t.throwsAsync(writable.write({type: "write", data: new ArrayBuffer(16)}));
   t.is(err?.message, "Writing array buffer is not implemented yet");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when not keeping existing data and writing string', async (t) => {
+test.serial('should succeed when not keeping existing data and writing string', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string", {create: true});
   const writable = await fileHandle.createWritable();
@@ -587,7 +614,7 @@ test('should succeed when not keeping existing data and writing string', async (
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when not keeping existing data and writing string via struct', async (t) => {
+test.serial('should succeed when not keeping existing data and writing string via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
@@ -601,7 +628,7 @@ test('should succeed when not keeping existing data and writing string via struc
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when keeping existing data and writing string', async (t) => {
+test.serial('should succeed when keeping existing data and writing string', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-append-string", {create: true});
   const writable = await fileHandle.createWritable();
@@ -615,7 +642,7 @@ test('should succeed when keeping existing data and writing string', async (t) =
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when keeping existing data and writing string via struct', async (t) => {
+test.serial('should succeed when keeping existing data and writing string via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-append-string-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
@@ -629,7 +656,7 @@ test('should succeed when keeping existing data and writing string via struct', 
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing string multiple times', async (t) => {
+test.serial('should succeed when writing string multiple times', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-strings", {create: true});
   const writable = await fileHandle.createWritable();
@@ -643,7 +670,7 @@ test('should succeed when writing string multiple times', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing string multiple times via struct', async (t) => {
+test.serial('should succeed when writing string multiple times via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-strings-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
@@ -657,27 +684,27 @@ test('should succeed when writing string multiple times via struct', async (t) =
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when seeking past size of file', async (t) => {
+test.serial('should return error when seeking past size of file', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-seek-past-size", {create: true});
   const writable = await fileHandle.createWritable();
   await writable.write("hello rust");
-  let err = await t.throwsAsync(writable.seek(600));
+  const err = await t.throwsAsync(writable.seek(600));
   t.is(err?.message, "Seeking past size");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when seeking past size of file via write', async (t) => {
+test.serial('should return error when seeking past size of file via write', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-seek-past-size-via-write", {create: true});
   const writable = await fileHandle.createWritable();
   await writable.write("hello rust");
-  let err = await t.throwsAsync(writable.write({type: "seek", position: 600}));
+  const err = await t.throwsAsync(writable.write({type: "seek", position: 600}));
   t.is(err?.message, "Seeking past size");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when seeking position', async (t) => {
+test.serial('should succeed when seeking position', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-seek", {create: true});
   const writable = await fileHandle.createWritable();
@@ -686,7 +713,7 @@ test('should succeed when seeking position', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when seeking position via write', async (t) => {
+test.serial('should succeed when seeking position via write', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-seek-via-write", {create: true});
   const writable = await fileHandle.createWritable();
@@ -695,7 +722,7 @@ test('should succeed when seeking position via write', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing string after seek', async (t) => {
+test.serial('should succeed when writing string after seek', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-seek", {create: true});
   const writable = await fileHandle.createWritable();
@@ -709,7 +736,7 @@ test('should succeed when writing string after seek', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing string after seek via write', async (t) => {
+test.serial('should succeed when writing string after seek via write', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-seek-via-write", {create: true});
   const writable = await fileHandle.createWritable();
@@ -723,14 +750,14 @@ test('should succeed when writing string after seek via write', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when seeking past size of file and writing string via write', async (t) => {
+test.serial('should return error when seeking past size of file and writing string via write', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-seek-past-size-and-write-string-via-write", {create: true});
   const writable = await fileHandle.createWritable();
   await writable.write("hello rust");
   // seek before seek-and-write to verify below that position doesn't change after failed seek-and-write
   await t.notThrowsAsync(writable.write({type: "seek", position: 6}));
-  let err = await t.throwsAsync(writable.write({type: "write", position: 600, data: "there"}));
+  const err = await t.throwsAsync(writable.write({type: "write", position: 600, data: "there"}));
   t.is(err?.message, "Seeking past size");
   await writable.write("the");
   await writable.write({type: "write", data: "re"});
@@ -741,7 +768,7 @@ test('should return error when seeking past size of file and writing string via 
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when seeking and writing string via write', async (t) => {
+test.serial('should succeed when seeking and writing string via write', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-seek-and-write-string-via-write", {create: true});
   const writable = await fileHandle.createWritable();
@@ -754,7 +781,7 @@ test('should succeed when seeking and writing string via write', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when truncating size', async (t) => {
+test.serial('should succeed when truncating size', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-truncate", {create: true});
   const writable = await fileHandle.createWritable();
@@ -767,7 +794,7 @@ test('should succeed when truncating size', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when truncating size via write', async (t) => {
+test.serial('should succeed when truncating size via write', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-truncate-via-write", {create: true});
   const writable = await fileHandle.createWritable();
@@ -780,7 +807,7 @@ test('should succeed when truncating size via write', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing string after truncating size', async (t) => {
+test.serial('should succeed when writing string after truncating size', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-truncate", {create: true});
   const writable = await fileHandle.createWritable();
@@ -794,7 +821,7 @@ test('should succeed when writing string after truncating size', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing string after truncating size via write', async (t) => {
+test.serial('should succeed when writing string after truncating size via write', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-truncate-via-write", {create: true});
   const writable = await fileHandle.createWritable();
@@ -808,7 +835,7 @@ test('should succeed when writing string after truncating size via write', async
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when closing writable file stream', async (t) => {
+test.serial('should succeed when closing writable file stream', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-close", {create: true});
   const writable = await fileHandle.createWritable();
@@ -816,7 +843,7 @@ test('should succeed when closing writable file stream', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when aborting writable file stream', async (t) => {
+test.serial('should succeed when aborting writable file stream', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-abort", {create: true});
   const writable = await fileHandle.createWritable();
@@ -825,7 +852,7 @@ test('should succeed when aborting writable file stream', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return writer for writable file stream', async (t) => {
+test.serial('should return writer for writable file stream', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-writer", {create: true});
   const writable = await fileHandle.createWritable();
@@ -838,7 +865,7 @@ test('should return writer for writable file stream', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should return error when getting writer for locked writable file stream', async (t) => {
+test.serial('should return error when getting writer for locked writable file stream', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-writer-locked", {create: true});
   const writable = await fileHandle.createWritable();

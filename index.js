@@ -222,7 +222,6 @@ const {
   JsNfsDirectoryHandleEntries,
   JsNfsDirectoryHandleKeys,
   JsNfsDirectoryHandleValues,
-  JsNfsWritableFileStream,
   JsNfsHandlePermissionDescriptor,
   JsNfsGetDirectoryOptions,
   JsNfsGetFileOptions,
@@ -233,12 +232,12 @@ const {
   JsNfsFileHandle,
   JsNfsFile,
   JsNfsBlob,
+  JsNfsWritableFileStream,
 } = nativeBinding
 
 module.exports.JsNfsDirectoryHandleEntries = JsNfsDirectoryHandleEntries
 module.exports.JsNfsDirectoryHandleKeys = JsNfsDirectoryHandleKeys
 module.exports.JsNfsDirectoryHandleValues = JsNfsDirectoryHandleValues
-module.exports.JsNfsWritableFileStream = JsNfsWritableFileStream
 module.exports.JsNfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor
 module.exports.JsNfsGetDirectoryOptions = JsNfsGetDirectoryOptions
 module.exports.JsNfsGetFileOptions = JsNfsGetFileOptions
@@ -249,3 +248,4 @@ module.exports.JsNfsDirectoryHandle = JsNfsDirectoryHandle
 module.exports.JsNfsFileHandle = JsNfsFileHandle
 module.exports.JsNfsFile = JsNfsFile
 module.exports.JsNfsBlob = JsNfsBlob
+module.exports.JsNfsWritableFileStream = JsNfsWritableFileStream
