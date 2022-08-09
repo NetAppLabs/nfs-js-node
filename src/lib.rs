@@ -83,7 +83,7 @@ interface FileSystemWritableFileStream extends WritableStream {
     abort(reason: string): Promise<string>;   // from WritableStream
     close(): Promise<void>;                   // from WritableStream
     getWriter(): WritableStreamDefaultWriter; // from WritableStream
-    write(data: ArrayBuffer | TypedArray | DataView | Blob | string | {type: "write" | "seek" | "truncate", data: ArrayBuffer | TypedArray | DataView | Blob | string, position: number, size: number}): Promise<void>;
+    write(data: ArrayBuffer | TypedArray | DataView | Blob | String | string | {type: 'write' | 'seek' | 'truncate', data?: ArrayBuffer | TypedArray | DataView | Blob | String | string, position?: number, size?: number}): Promise<void>;
     seek(position: number): Promise<void>;
     truncate(size: number): Promise<void>;
 }
@@ -116,6 +116,7 @@ const FIELD_SIZE: &str = "size";
 const FIELD_LENGTH: &str = "length";
 const FIELD_BUFFER: &str = "buffer";
 const FIELD_POSITION: &str = "position";
+const FIELD_SUBSTRING: &str = "substring";
 const FIELD_BYTE_LENGTH: &str = "byteLength";
 
 const KIND_FILE: &str = "file";
@@ -838,6 +839,7 @@ impl JsNfsFile {
       "writable-write-string-after-truncate-via-write" => 22,
       "writable-write-string-after-truncate" => 22,
       "writable-seek-past-size-and-write-string-via-write" => 11,
+      "writable-seek-and-write-string-object-via-write" => 11,
       "writable-seek-and-write-string-via-write" => 11,
       "writable-write-string-after-seek-via-write" => 11,
       "writable-write-string-after-seek" => 11,
@@ -893,6 +895,7 @@ impl JsNfsFile {
       "writable-write-string-after-truncate-via-write" => "hellbound troublemaker",
       "writable-write-string-after-truncate" => "hellbound troublemaker",
       "writable-seek-past-size-and-write-string-via-write" => "hello there",
+      "writable-seek-and-write-string-object-via-write" => "hello world",
       "writable-seek-and-write-string-via-write" => "hello there",
       "writable-write-string-after-seek-via-write" => "hello there",
       "writable-write-string-after-seek" => "hello there",
@@ -902,6 +905,12 @@ impl JsNfsFile {
       "writable-write-strings" => "hello rust, how are you on this fine day?",
       "writable-write-string-via-struct" => "happy days, all is well",
       "writable-write-string" => "happy days, all is well",
+      "writable-write-array-buffer-via-struct" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      "writable-write-array-buffer" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      "writable-write-typed-array-via-struct" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      "writable-write-typed-array" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      "writable-write-data-view-via-struct" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+      "writable-write-data-view" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
       "writable-truncate-via-write" => "hello",
       "writable-truncate" => "hello",
       _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count."
@@ -1040,7 +1049,9 @@ impl JsNfsWritableFileStream {
         };
       }
     }
-    if is_blob(&obj) {
+    if is_string_object(&obj) {
+      return self.parse_string(obj.coerce_to_string()?, None);
+    } else if is_blob(&obj) {
       return self.parse_blob(obj, None);
     } else if is_typed_array(&obj) {
       return self.parse_typed_array(obj, None);
@@ -1105,7 +1116,9 @@ impl JsNfsWritableFileStream {
   }
 
   fn parse_wrapped_data_object(&self, data: Object, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
-    if is_blob(&data) {
+    if is_string_object(&data) {
+      return self.parse_string(data.coerce_to_string()?, position);
+    } else if is_blob(&data) {
       return self.parse_blob(data, position);
     } else if is_typed_array(&data) {
       return self.parse_typed_array(data, position);
@@ -1118,75 +1131,31 @@ impl JsNfsWritableFileStream {
   }
 
   fn parse_string(&self, string: napi::JsString, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
-    Ok(JsNfsWritableFileStreamWriteOptions{
-      _type: WRITE_TYPE_WRITE.to_string(),
-      data: Some(JsNfsWritableFileStreamData{
-        string: Some(string.into_utf8()?.as_str()?.to_string()),
-        blob: None,
-        typed_array: None,
-        data_view: None,
-        array_buffer: None
-      }),
-      position,
-      size: None
-    })
+    self.parsed_write_options(Some(string.into_utf8()?.as_str()?.as_bytes().to_owned()), position)
   }
 
   fn parse_blob(&self, _blob: Object, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
-    Ok(JsNfsWritableFileStreamWriteOptions{
-      _type: WRITE_TYPE_WRITE.to_string(),
-      data: Some(JsNfsWritableFileStreamData{
-        string: None,
-        blob: Some(true), // FIXME
-        typed_array: None,
-        data_view: None,
-        array_buffer: None
-      }),
-      position,
-      size: None
-    })
+    self.parsed_write_options(None, position) // FIXME
   }
 
-  fn parse_typed_array(&self, _typed_array: Object, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
-    Ok(JsNfsWritableFileStreamWriteOptions{
-      _type: WRITE_TYPE_WRITE.to_string(),
-      data: Some(JsNfsWritableFileStreamData{
-        string: None,
-        blob: None,
-        typed_array: Some(true), // FIXME
-        data_view: None,
-        array_buffer: None
-      }),
-      position,
-      size: None
-    })
+  fn parse_typed_array(&self, typed_array: Object, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
+    // FIXME: what about length, byte_offset, and typedarray_type?
+    self.parsed_write_options(Some(napi::JsTypedArray::try_from(typed_array.into_unknown())?.into_value()?.arraybuffer.into_value()?.to_owned()), position)
   }
 
-  fn parse_data_view(&self, _data_view: Object, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
-    Ok(JsNfsWritableFileStreamWriteOptions{
-      _type: WRITE_TYPE_WRITE.to_string(),
-      data: Some(JsNfsWritableFileStreamData{
-        string: None,
-        blob: None,
-        typed_array: None,
-        data_view: Some(true), // FIXME
-        array_buffer: None
-      }),
-      position,
-      size: None
-    })
+  fn parse_data_view(&self, data_view: Object, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
+    // FIXME: what about length and byte_offset?
+    self.parsed_write_options(Some(napi::JsDataView::try_from(data_view.into_unknown())?.into_value()?.arraybuffer.into_value()?.to_owned()), position)
   }
 
-  fn parse_array_buffer(&self, _array_buffer: Object, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
+  fn parse_array_buffer(&self, array_buffer: Object, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
+    self.parsed_write_options(Some(napi::JsArrayBuffer::try_from(array_buffer.into_unknown())?.into_value()?.to_owned()), position)
+  }
+
+  fn parsed_write_options(&self, data: Option<Vec<u8>>, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
     Ok(JsNfsWritableFileStreamWriteOptions{
       _type: WRITE_TYPE_WRITE.to_string(),
-      data: Some(JsNfsWritableFileStreamData{
-        string: None,
-        blob: None,
-        typed_array: None,
-        data_view: None,
-        array_buffer: Some(true) // FIXME
-      }),
+      data,
       position,
       size: None
     })
@@ -1206,22 +1175,12 @@ impl JsNfsWritableFileStream {
 
   fn try_write_data(&mut self, options: &JsNfsWritableFileStreamWriteOptions) -> napi::Result<Undefined> {
     if let Some(data) = &options.data {
-      if let Some(string) = &data.string {
-        return self.nfs_write_str(string.as_str());
-      } else if let Some(_blob) = &data.blob {
-        return self.nfs_write_blob(&Map::new()); // FIXME
-      } else if let Some(_typed_array) = &data.typed_array {
-        return self.nfs_write_typed_array(&Map::new()); // FIXME
-      } else if let Some(_data_view) = &data.data_view {
-        return self.nfs_write_data_view(&Map::new()); // FIXME
-      } else if let Some(_array_buffer) = &data.array_buffer {
-        return self.nfs_write_array_buffer(&Map::new()); // FIXME
-      }
+      return self.nfs_write(data.as_slice());
     }
     Err(Error::new(Status::InvalidArg, format!("Property data of type object or string is required when writing object with type={:?}", WRITE_TYPE_WRITE.to_string())))
   }
 
-  fn nfs_write_str(&mut self, data: &str) -> napi::Result<Undefined> {
+  fn nfs_write(&mut self, bytes: &[u8]) -> napi::Result<Undefined> {
     if let Some(nfs) = &self.handle.nfs {
       let mut my_nfs = nfs.to_owned();
       let nfs_file = my_nfs.open(Path::new(self.handle.path.as_str()), OFlag::O_SYNC)?;
@@ -1232,30 +1191,14 @@ impl JsNfsWritableFileStream {
         },
         _ => self.position.unwrap() as u64
       };
-      let _ = nfs_file.pwrite(data.as_bytes(), offset)?;
-      self.position = Some((offset as i64) + (data.as_bytes().len() as i64));
+      let _ = nfs_file.pwrite(bytes, offset)?;
+      self.position = Some((offset as i64) + (bytes.len() as i64));
     }
     Ok(())
   }
 
-  fn nfs_write_blob(&mut self, _blob: &Map<String, Value>) -> napi::Result<Undefined> {
-    Err(Error::new(Status::GenericFailure, "Writing blob is not implemented yet".to_string()))
-  }
-
-  fn nfs_write_typed_array(&mut self, _typed_array: &Map<String, Value>) -> napi::Result<Undefined> {
-    Err(Error::new(Status::GenericFailure, "Writing typed array is not implemented yet".to_string()))
-  }
-
-  fn nfs_write_data_view(&mut self, _data_view: &Map<String, Value>) -> napi::Result<Undefined> {
-    Err(Error::new(Status::GenericFailure, "Writing data view is not implemented yet".to_string()))
-  }
-
-  fn nfs_write_array_buffer(&mut self, _array_buffer: &Map<String, Value>) -> napi::Result<Undefined> {
-    Err(Error::new(Status::GenericFailure, "Writing array buffer is not implemented yet".to_string()))
-  }
-
   #[napi(ts_return_type="Promise<void>")]
-  pub fn write(&'static mut self, #[napi(ts_arg_type="any")] data: Unknown) -> napi::Result<AsyncTask<JsNfsWritableFileStreamWrite>> {
+  pub fn write(&'static mut self, #[napi(ts_arg_type="ArrayBuffer | TypedArray | DataView | Blob | String | string | {type: 'write' | 'seek' | 'truncate', data?: ArrayBuffer | TypedArray | DataView | Blob | String | string, position?: number, size?: number}")] data: Unknown) -> napi::Result<AsyncTask<JsNfsWritableFileStreamWrite>> {
     let options = self.parse_write_input(data)?;
     Ok(AsyncTask::new(JsNfsWritableFileStreamWrite{stream: self, options}))
   }
@@ -1340,17 +1283,9 @@ impl JsNfsWritableFileStream {
 
 struct JsNfsWritableFileStreamWriteOptions {
   _type: String,
-  data: Option<JsNfsWritableFileStreamData>,
+  data: Option<Vec<u8>>,
   position: Option<i64>,
   size: Option<i64>
-}
-
-struct JsNfsWritableFileStreamData {
-  string: Option<String>,
-  blob: Option<bool>, // FIXME
-  typed_array: Option<bool>, // FIXME
-  data_view: Option<bool>, // FIXME
-  array_buffer: Option<bool> // FIXME
 }
 
 struct JsNfsWritableFileStreamWrite {
@@ -1379,6 +1314,14 @@ impl napi::Task for JsNfsWritableFileStreamWrite {
   }
 }
 
+fn is_string_object(obj: &Object) -> bool {
+  if obj.has_named_property(FIELD_SUBSTRING).unwrap() {
+    let substring = obj.get_named_property::<Unknown>(FIELD_SUBSTRING).unwrap();
+    return substring.get_type().unwrap() == ValueType::Function;
+  }
+  false
+}
+
 fn is_blob(obj: &Object) -> bool {
   if obj.has_named_property(FIELD_TYPE).unwrap() {
     let _type = obj.get_named_property::<Unknown>(FIELD_TYPE).unwrap();
@@ -1389,24 +1332,24 @@ fn is_blob(obj: &Object) -> bool {
 
 fn is_typed_array(obj: &Object) -> bool {
   if obj.has_named_property(FIELD_LENGTH).unwrap() {
-    let _type = obj.get_named_property::<Unknown>(FIELD_LENGTH).unwrap();
-    return _type.get_type().unwrap() == ValueType::Number;
+    let length = obj.get_named_property::<Unknown>(FIELD_LENGTH).unwrap();
+    return length.get_type().unwrap() == ValueType::Number;
   }
   false
 }
 
 fn is_data_view(obj: &Object) -> bool {
   if obj.has_named_property(FIELD_BUFFER).unwrap() {
-    let _type = obj.get_named_property::<Unknown>(FIELD_BUFFER).unwrap();
-    return _type.get_type().unwrap() == ValueType::Object;
+    let buffer = obj.get_named_property::<Unknown>(FIELD_BUFFER).unwrap();
+    return buffer.get_type().unwrap() == ValueType::Object;
   }
   false
 }
 
 fn is_array_buffer(obj: &Object) -> bool {
   if obj.has_named_property(FIELD_BYTE_LENGTH).unwrap() {
-    let _type = obj.get_named_property::<Unknown>(FIELD_BYTE_LENGTH).unwrap();
-    return _type.get_type().unwrap() == ValueType::Number;
+    let byte_length = obj.get_named_property::<Unknown>(FIELD_BYTE_LENGTH).unwrap();
+    return byte_length.get_type().unwrap() == ValueType::Number;
   }
   false
 }

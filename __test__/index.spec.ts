@@ -501,39 +501,51 @@ test.serial('should return error when writing unsupported type', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when writing blob', async (t) => {
+// TODO
+test.failing('should return error when writing blob', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-blob", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write(new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"})));
-  t.is(err?.message, "Writing blob is not implemented yet");
+  const blob = new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"});
+  await t.notThrowsAsync(writable.write(blob));
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when writing typed array', async (t) => {
+test.serial('should succeed when writing typed array', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write(new Int8Array(8)));
-  t.is(err?.message, "Writing typed array is not implemented yet");
+  const ta = new Int16Array(12);
+  await t.notThrowsAsync(writable.write(ta));
+  const file = await fileHandle.getFile();
+  const buf = await file.arrayBuffer();
+  const tab = new Int16Array(buf);
+  t.is(tab.byteLength, ta.byteLength);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when writing data view', async (t) => {
+test.serial('should succeed when writing data view', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-data-view", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write(new DataView(new ArrayBuffer(16), 0)));
-  t.is(err?.message, "Writing data view is not implemented yet");
+  const dv = new DataView(new ArrayBuffer(16), 0);
+  await t.notThrowsAsync(writable.write(dv));
+  const file = await fileHandle.getFile();
+  const buf = await file.arrayBuffer();
+  const dvb = new DataView(buf);
+  t.is(dvb.byteLength, dv.byteLength);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when writing array buffer', async (t) => {
+test.serial('should succeed when writing array buffer', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-array-buffer", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write(new ArrayBuffer(16)));
-  t.is(err?.message, "Writing array buffer is not implemented yet");
+  const ab = new ArrayBuffer(23);
+  await t.notThrowsAsync(writable.write(ab));
+  const file = await fileHandle.getFile();
+  const buf = await file.arrayBuffer();
+  t.is(buf.byteLength, ab.byteLength);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -564,39 +576,51 @@ test.serial('should return error when writing unsupported object data type', asy
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when writing blob via struct', async (t) => {
+// TODO
+test.failing('should return error when writing blob via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-blob-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write({type: "write", data: new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"})}));
-  t.is(err?.message, "Writing blob is not implemented yet");
+  const blob = new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"});
+  await t.notThrowsAsync(writable.write({type: "write", data: blob}));
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when writing typed array via struct', async (t) => {
+test.serial('should succeed when writing typed array via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write({type: "write", data: new Int8Array(8)}));
-  t.is(err?.message, "Writing typed array is not implemented yet");
+  const ta = new Int32Array(6);
+  await t.notThrowsAsync(writable.write({type: "write", data: ta}));
+  const file = await fileHandle.getFile();
+  const buf = await file.arrayBuffer();
+  const tab = new Int32Array(buf);
+  t.is(tab.byteLength, ta.byteLength);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when writing data view via struct', async (t) => {
+test.serial('should succeed when writing data view via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-data-view-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write({type: "write", data: new DataView(new ArrayBuffer(16), 0)}));
-  t.is(err?.message, "Writing data view is not implemented yet");
+  const dv = new DataView(new ArrayBuffer(23), 0);
+  await t.notThrowsAsync(writable.write({type: "write", data: dv}));
+  const file = await fileHandle.getFile();
+  const buf = await file.arrayBuffer();
+  const dvb = new DataView(buf);
+  t.is(dvb.byteLength, dv.byteLength);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when writing array buffer via struct', async (t) => {
+test('should succeed when writing array buffer via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-array-buffer-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write({type: "write", data: new ArrayBuffer(16)}));
-  t.is(err?.message, "Writing array buffer is not implemented yet");
+  const ab = new ArrayBuffer(16);
+  await t.notThrowsAsync(writable.write({type: "write", data: ab}));
+  const file = await fileHandle.getFile();
+  const buf = await file.arrayBuffer();
+  t.is(buf.byteLength, ab.byteLength);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -604,7 +628,7 @@ test.serial('should succeed when not keeping existing data and writing string', 
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string", {create: true});
   const writable = await fileHandle.createWritable();
-  await t.notThrowsAsync(writable.write("hello rust, all is well"));
+  await t.notThrowsAsync(writable.write(new String("hello rust, all is well")));
   const overwritable = await fileHandle.createWritable();
   await t.notThrowsAsync(overwritable.write("happy days"));
   const file = await fileHandle.getFile();
@@ -618,7 +642,7 @@ test.serial('should succeed when not keeping existing data and writing string vi
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  await t.notThrowsAsync(writable.write({type: "write", data: "hello rust, all is well"}));
+  await t.notThrowsAsync(writable.write({type: "write", data: new String("hello rust, all is well")}));
   const overwritable = await fileHandle.createWritable();
   await t.notThrowsAsync(overwritable.write({type: "write", data: "happy days"}));
   const file = await fileHandle.getFile();
@@ -661,7 +685,7 @@ test.serial('should succeed when writing string multiple times', async (t) => {
   const fileHandle = await rootHandle.getFileHandle("writable-write-strings", {create: true});
   const writable = await fileHandle.createWritable();
   await t.notThrowsAsync(writable.write("hello rust,"));
-  await t.notThrowsAsync(writable.write(" how are you"));
+  await t.notThrowsAsync(writable.write(new String(" how are you")));
   await t.notThrowsAsync(writable.write(" on this fine day?"));
   const file = await fileHandle.getFile();
   t.is(file.size, 41);
@@ -674,7 +698,7 @@ test.serial('should succeed when writing string multiple times via struct', asyn
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-strings-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  await t.notThrowsAsync(writable.write({type: "write", data: "hello rust,"}));
+  await t.notThrowsAsync(writable.write({type: "write", data: new String("hello rust,")}));
   await t.notThrowsAsync(writable.write({type: "write", data: " how are you"}));
   await t.notThrowsAsync(writable.write({type: "write", data: " on this fine day?"}));
   const file = await fileHandle.getFile();
@@ -778,6 +802,19 @@ test.serial('should succeed when seeking and writing string via write', async (t
   t.is(file.size, 11);
   const text = await file.text();
   t.is(text, "hello there");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test.serial('should succeed when seeking and writing string object via write', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-seek-and-write-string-object-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.write({type: "write", position: 6, data: new String("world")}));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 11);
+  const text = await file.text();
+  t.is(text, "hello world");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
