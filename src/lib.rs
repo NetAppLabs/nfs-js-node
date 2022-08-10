@@ -107,10 +107,6 @@ interface Blob {
 const FIELD_KIND: &str = "kind";
 const FIELD_NAME: &str = "name";
 const FIELD_PATH: &str = "path";
-const FIELD_MODE: &str = "mode";
-const FIELD_CREATE: &str = "create";
-const FIELD_RECURSIVE: &str = "recursive";
-const FIELD_KEEP_EXISTING_DATA: &str = "keepExistingData";
 const FIELD_DATA: &str = "data";
 const FIELD_TYPE: &str = "type";
 const FIELD_SIZE: &str = "size";
@@ -223,7 +219,7 @@ impl Generator for JsNfsDirectoryHandleValues {
   }
 }
 
-#[napi]
+#[napi(object)]
 struct JsNfsHandlePermissionDescriptor {
   #[napi(ts_type="'read' | 'readwrite'")]
   pub mode: String
@@ -245,29 +241,9 @@ impl JsNfsHandlePermissionDescriptor {
   }
 }
 
-impl FromNapiValue for JsNfsHandlePermissionDescriptor {
-
-  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-    let obj = from_napi_to_map(env, napi_val)?;
-    let mode = obj.get(FIELD_MODE).and_then(|val| val.as_str()).unwrap_or_default();
-    let res = JsNfsHandlePermissionDescriptor{mode: mode.to_string()};
-    Ok(res)
-  }
-}
-
-#[napi]
+#[napi(object)]
 struct JsNfsGetDirectoryOptions {
   pub create: bool
-}
-
-impl FromNapiValue for JsNfsGetDirectoryOptions {
-
-  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-    let obj = from_napi_to_map(env, napi_val)?;
-    let create = obj.get(FIELD_CREATE).and_then(|val| val.as_bool()).unwrap_or_default();
-    let res = JsNfsGetDirectoryOptions{create};
-    Ok(res)
-  }
 }
 
 fn should_create_directory(options: Option<JsNfsGetDirectoryOptions>) -> bool {
@@ -277,19 +253,9 @@ fn should_create_directory(options: Option<JsNfsGetDirectoryOptions>) -> bool {
   false
 }
 
-#[napi]
+#[napi(object)]
 struct JsNfsGetFileOptions {
   pub create: bool
-}
-
-impl FromNapiValue for JsNfsGetFileOptions {
-
-  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-    let obj = from_napi_to_map(env, napi_val)?;
-    let create = obj.get(FIELD_CREATE).and_then(|val| val.as_bool()).unwrap_or_default();
-    let res = JsNfsGetFileOptions{create};
-    Ok(res)
-  }
 }
 
 fn should_create_file(options: Option<JsNfsGetFileOptions>) -> bool {
@@ -299,19 +265,9 @@ fn should_create_file(options: Option<JsNfsGetFileOptions>) -> bool {
   false
 }
 
-#[napi]
+#[napi(object)]
 struct JsNfsRemoveOptions {
   pub recursive: bool
-}
-
-impl FromNapiValue for JsNfsRemoveOptions {
-
-  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-    let obj = from_napi_to_map(env, napi_val)?;
-    let recursive = obj.get(FIELD_RECURSIVE).and_then(|val| val.as_bool()).unwrap_or_default();
-    let res = JsNfsRemoveOptions{recursive};
-    Ok(res)
-  }
 }
 
 fn should_remove_recursively(options: Option<JsNfsRemoveOptions>) -> bool {
@@ -321,19 +277,9 @@ fn should_remove_recursively(options: Option<JsNfsRemoveOptions>) -> bool {
   false
 }
 
-#[napi]
+#[napi(object)]
 struct JsNfsCreateWritableOptions {
   pub keep_existing_data: bool
-}
-
-impl FromNapiValue for JsNfsCreateWritableOptions {
-
-  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-    let obj = from_napi_to_map(env, napi_val)?;
-    let keep_existing_data = obj.get(FIELD_KEEP_EXISTING_DATA).and_then(|val| val.as_bool()).unwrap_or_default();
-    let res = JsNfsCreateWritableOptions{keep_existing_data};
-    Ok(res)
-  }
 }
 
 fn should_keep_existing_data(options: Option<JsNfsCreateWritableOptions>) -> bool {
@@ -1311,22 +1257,4 @@ fn is_array_buffer(obj: &Object) -> bool {
     return byte_length.get_type().unwrap() == ValueType::Number;
   }
   false
-}
-
-unsafe fn from_napi_to_map(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Map::<String, Value>> {
-  let ty = type_of!(env, napi_val)?;
-  if ty != ValueType::Object {
-    return Err(Error::new(Status::ObjectExpected, format!("Expect {:?}, got: {:?}", ValueType::Object, ty)))
-  }
-
-  let mut is_arr = false;
-  if sys::napi_is_array(env, napi_val, &mut is_arr) != sys::Status::napi_ok {
-    return Err(Error::new(Status::GenericFailure, "Failed to detect whether given js is an array".to_string()))
-  }
-
-  if is_arr {
-    return Err(Error::new(Status::ObjectExpected, "Expect Object, got Array".to_string()))
-  }
-
-  Map::<String, Value>::from_napi_value(env, napi_val)
 }

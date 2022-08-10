@@ -222,11 +222,6 @@ const {
   JsNfsDirectoryHandleEntries,
   JsNfsDirectoryHandleKeys,
   JsNfsDirectoryHandleValues,
-  JsNfsHandlePermissionDescriptor,
-  JsNfsGetDirectoryOptions,
-  JsNfsGetFileOptions,
-  JsNfsRemoveOptions,
-  JsNfsCreateWritableOptions,
   JsNfsHandle,
   JsNfsDirectoryHandle,
   JsNfsFileHandle,
@@ -238,11 +233,6 @@ const {
 module.exports.JsNfsDirectoryHandleEntries = JsNfsDirectoryHandleEntries
 module.exports.JsNfsDirectoryHandleKeys = JsNfsDirectoryHandleKeys
 module.exports.JsNfsDirectoryHandleValues = JsNfsDirectoryHandleValues
-module.exports.JsNfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor
-module.exports.JsNfsGetDirectoryOptions = JsNfsGetDirectoryOptions
-module.exports.JsNfsGetFileOptions = JsNfsGetFileOptions
-module.exports.JsNfsRemoveOptions = JsNfsRemoveOptions
-module.exports.JsNfsCreateWritableOptions = JsNfsCreateWritableOptions
 module.exports.JsNfsHandle = JsNfsHandle
 module.exports.JsNfsDirectoryHandle = JsNfsDirectoryHandle
 module.exports.JsNfsFileHandle = JsNfsFileHandle
