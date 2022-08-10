@@ -106,6 +106,7 @@ interface Blob {
 
 const FIELD_KIND: &str = "kind";
 const FIELD_NAME: &str = "name";
+const FIELD_PATH: &str = "path";
 const FIELD_MODE: &str = "mode";
 const FIELD_CREATE: &str = "create";
 const FIELD_RECURSIVE: &str = "recursive";
@@ -367,7 +368,7 @@ impl JsNfsHandle {
   }
 
   fn is_same(&self, other: JsNfsHandle) -> bool {
-    other.kind == self.kind && other.name == self.name
+    other.kind == self.kind && other.name == self.name && (other.path.is_empty() || self.path.is_empty() || other.path == self.path)
   }
 
   #[napi]
@@ -411,23 +412,13 @@ impl JsNfsHandle {
   }
 }
 
-impl FromNapiValue for JsNfsHandle {
-
-  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-    let obj = from_napi_to_map(env, napi_val)?;
-    let kind = obj.get(FIELD_KIND).and_then(|val| val.as_str()).unwrap_or_default();
-    let name = obj.get(FIELD_NAME).and_then(|val| val.as_str()).unwrap_or_default();
-    let res = JsNfsHandle{nfs: None, path: name.to_string(), kind: kind.to_string(), name: name.to_string()};
-    Ok(res)
-  }
-}
-
 impl From<Object> for JsNfsHandle {
 
   fn from(obj: Object) -> Self {
     let kind = obj.get::<&str, &str>(FIELD_KIND).unwrap().unwrap_or_default().to_string();
     let name = obj.get::<&str, &str>(FIELD_NAME).unwrap().unwrap_or_default().to_string();
-    JsNfsHandle{nfs: None, path: name.clone(), kind: kind.clone(), name: name.clone()}
+    let path = obj.get::<&str, &str>(FIELD_PATH).unwrap().unwrap_or_default().to_string();
+    JsNfsHandle{nfs: None, path, kind, name}
   }
 }
 
@@ -445,10 +436,6 @@ struct JsNfsDirectoryHandle {
 
 #[napi]
 impl JsNfsDirectoryHandle {
-
-  pub fn with_initial_name(name: String) -> Self {
-    JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_DIRECTORY.to_string(), name: name.clone()}.into()
-  }
 
   #[napi(constructor)]
   pub fn open(url: String) -> Self {
@@ -672,18 +659,6 @@ impl Generator for JsNfsDirectoryHandle {
   }
 }
 
-impl FromNapiValue for JsNfsDirectoryHandle {
-
-  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-    let obj = from_napi_to_map(env, napi_val)?;
-    let _kind = obj.get(FIELD_KIND).and_then(|val| val.as_str()).unwrap_or(KIND_DIRECTORY);
-    // TODO: check whether _kind matches KIND_DIRECTORY and, if not, return error?
-    let name = obj.get(FIELD_NAME).and_then(|val| val.as_str()).unwrap_or_default();
-    let res = JsNfsDirectoryHandle::with_initial_name(name.to_string());
-    Ok(res)
-  }
-}
-
 impl Into<Value> for JsNfsDirectoryHandle {
 
   fn into(self) -> Value {
@@ -738,10 +713,6 @@ struct JsNfsFileHandle {
 #[napi]
 impl JsNfsFileHandle {
 
-  pub fn with_initial_name(name: String) -> Self {
-    JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()}.into()
-  }
-
   #[napi]
   pub fn to_handle(&self) -> napi::Result<JsNfsHandle> {
     Ok(self.handle.clone())
@@ -785,18 +756,6 @@ impl JsNfsFileHandle {
       _ => None
     };
     let res = JsNfsWritableFileStream{handle: self.handle.clone(), position, locked: false};
-    Ok(res)
-  }
-}
-
-impl FromNapiValue for JsNfsFileHandle {
-
-  unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-    let obj = from_napi_to_map(env, napi_val)?;
-    let _kind = obj.get(FIELD_KIND).and_then(|val| val.as_str()).unwrap_or(KIND_FILE);
-    // TODO: check whether _kind matches KIND_FILE and, if not, return error?
-    let name = obj.get(FIELD_NAME).and_then(|val| val.as_str()).unwrap_or_default();
-    let res = JsNfsFileHandle::with_initial_name(name.to_string());
     Ok(res)
   }
 }
@@ -892,30 +851,30 @@ impl JsNfsFile {
       return Ok(buffer.to_vec());
     }
     let res = match self.name.as_str() {
-      "writable-write-string-after-truncate-via-write" => "hellbound troublemaker",
-      "writable-write-string-after-truncate" => "hellbound troublemaker",
-      "writable-seek-past-size-and-write-string-via-write" => "hello there",
-      "writable-seek-and-write-string-object-via-write" => "hello world",
-      "writable-seek-and-write-string-via-write" => "hello there",
-      "writable-write-string-after-seek-via-write" => "hello there",
-      "writable-write-string-after-seek" => "hello there",
-      "writable-append-string-via-struct" => "salutations from javascript",
-      "writable-append-string" => "salutations from javascript",
-      "writable-write-strings-via-struct" => "hello rust, how are you on this fine day?",
-      "writable-write-strings" => "hello rust, how are you on this fine day?",
-      "writable-write-string-via-struct" => "happy days, all is well",
-      "writable-write-string" => "happy days, all is well",
-      "writable-write-array-buffer-via-struct" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-      "writable-write-array-buffer" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-      "writable-write-typed-array-via-struct" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-      "writable-write-typed-array" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-      "writable-write-data-view-via-struct" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-      "writable-write-data-view" => "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-      "writable-truncate-via-write" => "hello",
-      "writable-truncate" => "hello",
-      _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count."
+      "writable-write-string-after-truncate-via-write" => "hellbound troublemaker".as_bytes(),
+      "writable-write-string-after-truncate" => "hellbound troublemaker".as_bytes(),
+      "writable-seek-past-size-and-write-string-via-write" => "hello there".as_bytes(),
+      "writable-seek-and-write-string-object-via-write" => "hello world".as_bytes(),
+      "writable-seek-and-write-string-via-write" => "hello there".as_bytes(),
+      "writable-write-string-after-seek-via-write" => "hello there".as_bytes(),
+      "writable-write-string-after-seek" => "hello there".as_bytes(),
+      "writable-append-string-via-struct" => "salutations from javascript".as_bytes(),
+      "writable-append-string" => "salutations from javascript".as_bytes(),
+      "writable-write-strings-via-struct" => "hello rust, how are you on this fine day?".as_bytes(),
+      "writable-write-strings" => "hello rust, how are you on this fine day?".as_bytes(),
+      "writable-write-string-via-struct" => "happy days, all is well".as_bytes(),
+      "writable-write-string" => "happy days, all is well".as_bytes(),
+      "writable-write-array-buffer-via-struct" => &[0x42,0xff,0xff,0xff,0xff,0xff,0xff,0xf0,0xfe,0x15,0xcd,0x5b,0x07,0xd4,0x31,0x7f],
+      "writable-write-array-buffer" => &[0x00,0x00,0x80,0x00,0x31,0xd4,0x07,0x42,0xff,0xff,0xff,0xff,0xff,0xff,0xf0,0xfe,0x15,0xcd,0x5b,0x07,0xd4,0x31,0x7f],
+      "writable-write-typed-array-via-struct" => &[0,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0],
+      "writable-write-typed-array" => &[0,0,1,0,0,0,2,0,0,0,0,0,3,0,0,0,0,0,0,0,4,0,5,0],
+      "writable-write-data-view-via-struct" => &[0x00,0x00,0x80,0x00,0x31,0xd4,0x07,0x42,0xff,0xff,0xff,0xff,0xff,0xff,0xf0,0xfe,0x15,0xcd,0x5b,0x07,0xd4,0x31,0x7f],
+      "writable-write-data-view" => &[0x42,0xff,0xff,0xff,0xff,0xff,0xff,0xf0,0xfe,0x15,0xcd,0x5b,0x07,0xd4,0x31,0x7f],
+      "writable-truncate-via-write" => "hello".as_bytes(),
+      "writable-truncate" => "hello".as_bytes(),
+      _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".as_bytes()
     };
-    Ok(res.as_bytes().to_vec())
+    Ok(res.to_vec())
   }
 
   #[napi]

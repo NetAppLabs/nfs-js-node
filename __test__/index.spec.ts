@@ -502,7 +502,7 @@ test.serial('should return error when writing unsupported type', async (t) => {
 })
 
 // TODO
-test.failing('should return error when writing blob', async (t) => {
+test.failing('should succeed when writing blob', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-blob", {create: true});
   const writable = await fileHandle.createWritable();
@@ -515,12 +515,12 @@ test.serial('should succeed when writing typed array', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array", {create: true});
   const writable = await fileHandle.createWritable();
-  const ta = new Int16Array(12);
+  const ta = new Int16Array([0,1,0,2,0,0,3,0,0,0,4,5]);
   await t.notThrowsAsync(writable.write(ta));
   const file = await fileHandle.getFile();
   const buf = await file.arrayBuffer();
   const tab = new Int16Array(buf);
-  t.is(tab.byteLength, ta.byteLength);
+  t.deepEqual(tab, ta);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -529,11 +529,16 @@ test.serial('should succeed when writing data view', async (t) => {
   const fileHandle = await rootHandle.getFileHandle("writable-write-data-view", {create: true});
   const writable = await fileHandle.createWritable();
   const dv = new DataView(new ArrayBuffer(16), 0);
+  dv.setFloat64(0, 562949953421311.0);
+  dv.setUint8(8, 254);
+  dv.setInt32(9, 123456789, true);
+  dv.setUint16(13, 54321);
+  dv.setInt8(15, 127);
   await t.notThrowsAsync(writable.write(dv));
   const file = await fileHandle.getFile();
   const buf = await file.arrayBuffer();
   const dvb = new DataView(buf);
-  t.is(dvb.byteLength, dv.byteLength);
+  t.deepEqual(dvb, dv);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -542,10 +547,19 @@ test.serial('should succeed when writing array buffer', async (t) => {
   const fileHandle = await rootHandle.getFileHandle("writable-write-array-buffer", {create: true});
   const writable = await fileHandle.createWritable();
   const ab = new ArrayBuffer(23);
+  const dv = new DataView(ab, 0);
+  dv.setFloat32(0, 1.175494351e-38, true);
+  dv.setUint16(4, 54321, true);
+  dv.setUint8(6, 7);
+  dv.setFloat64(7, 562949953421311.0);
+  dv.setUint8(15, 254);
+  dv.setInt32(16, 123456789, true);
+  dv.setUint16(20, 54321);
+  dv.setInt8(22, 127);
   await t.notThrowsAsync(writable.write(ab));
   const file = await fileHandle.getFile();
   const buf = await file.arrayBuffer();
-  t.is(buf.byteLength, ab.byteLength);
+  t.deepEqual(buf, ab);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -577,7 +591,7 @@ test.serial('should return error when writing unsupported object data type', asy
 })
 
 // TODO
-test.failing('should return error when writing blob via struct', async (t) => {
+test.failing('should succeed when writing blob via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-blob-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
@@ -590,12 +604,12 @@ test.serial('should succeed when writing typed array via struct', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-typed-array-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
-  const ta = new Int32Array(6);
+  const ta = new Int32Array([0,1,0,2,0,0,3]);
   await t.notThrowsAsync(writable.write({type: "write", data: ta}));
   const file = await fileHandle.getFile();
   const buf = await file.arrayBuffer();
   const tab = new Int32Array(buf);
-  t.is(tab.byteLength, ta.byteLength);
+  t.deepEqual(tab, ta);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -604,11 +618,19 @@ test.serial('should succeed when writing data view via struct', async (t) => {
   const fileHandle = await rootHandle.getFileHandle("writable-write-data-view-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
   const dv = new DataView(new ArrayBuffer(23), 0);
+  dv.setFloat32(0, 1.175494351e-38, true);
+  dv.setUint16(4, 54321, true);
+  dv.setUint8(6, 7);
+  dv.setFloat64(7, 562949953421311.0);
+  dv.setUint8(15, 254);
+  dv.setInt32(16, 123456789, true);
+  dv.setUint16(20, 54321);
+  dv.setInt8(22, 127);
   await t.notThrowsAsync(writable.write({type: "write", data: dv}));
   const file = await fileHandle.getFile();
   const buf = await file.arrayBuffer();
   const dvb = new DataView(buf);
-  t.is(dvb.byteLength, dv.byteLength);
+  t.deepEqual(dvb, dv);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -617,10 +639,16 @@ test('should succeed when writing array buffer via struct', async (t) => {
   const fileHandle = await rootHandle.getFileHandle("writable-write-array-buffer-via-struct", {create: true});
   const writable = await fileHandle.createWritable();
   const ab = new ArrayBuffer(16);
+  const dv = new DataView(ab, 0);
+  dv.setFloat64(0, 562949953421311.0);
+  dv.setUint8(8, 254);
+  dv.setInt32(9, 123456789, true);
+  dv.setUint16(13, 54321);
+  dv.setInt8(15, 127);
   await t.notThrowsAsync(writable.write({type: "write", data: ab}));
   const file = await fileHandle.getFile();
   const buf = await file.arrayBuffer();
-  t.is(buf.byteLength, ab.byteLength);
+  t.deepEqual(buf, ab);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
