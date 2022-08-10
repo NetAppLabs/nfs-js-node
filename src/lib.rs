@@ -686,8 +686,8 @@ impl JsNfsFileHandle {
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
       let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
-      let _type = "text/plain".to_string(); // FIXME
-      let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as i64, _type, last_modified: (nfs_stat.nfs_mtime * 1000) as i64, name: self.name.clone()};
+      let type_ = "text/plain".to_string(); // FIXME
+      let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as i64, type_, last_modified: (nfs_stat.nfs_mtime * 1000) as i64, name: self.name.clone()};
       return Ok(res);
     }
     let res = JsNfsFile::with_initial_name(self.name.clone());
@@ -729,7 +729,7 @@ struct JsNfsFile {
   #[napi(readonly)]
   pub size: i64,
   #[napi(readonly)]
-  pub _type: String,
+  pub type_: String,
   #[napi(readonly)]
   pub last_modified: i64,
   #[napi(readonly)]
@@ -761,7 +761,7 @@ impl JsNfsFile {
     JsNfsFile{
       handle: JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()},
       size,
-      _type: "text/plain".to_string(),
+      type_: "text/plain".to_string(),
       last_modified: 1658159058723,
       name
     }
@@ -769,12 +769,12 @@ impl JsNfsFile {
 
   fn to_blob(&self) -> JsNfsBlob {
     let content = self.nfs_bytes().unwrap();
-    JsNfsBlob{size: content.len() as i64, _type: self._type.clone(), content}
+    JsNfsBlob{size: content.len() as i64, type_: self.type_.clone(), content}
   }
 
   #[napi(ts_return_type="Promise<ArrayBuffer>")]
   pub fn array_buffer(&self) -> AsyncTask<JsNfsFileArrayBuffer> {
-    AsyncTask::new(JsNfsFileArrayBuffer(JsNfsFile{handle: self.handle.clone(), size: self.size, _type: self._type.clone(), last_modified: self.last_modified, name: self.name.clone()}))
+    AsyncTask::new(JsNfsFileArrayBuffer(JsNfsFile{handle: self.handle.clone(), size: self.size, type_: self.type_.clone(), last_modified: self.last_modified, name: self.name.clone()}))
   }
 
   #[napi]
@@ -855,7 +855,7 @@ struct JsNfsBlob {
   #[napi(readonly)]
   pub size: i64,
   #[napi(readonly)]
-  pub _type: String
+  pub type_: String
 }
 
 #[napi]
@@ -863,7 +863,7 @@ impl JsNfsBlob {
 
   #[napi(ts_return_type="Promise<ArrayBuffer>")]
   pub fn array_buffer(&self) -> AsyncTask<JsNfsBlobArrayBuffer> {
-    AsyncTask::new(JsNfsBlobArrayBuffer(JsNfsBlob{content: self.content.clone(), size: self.size, _type: self._type.clone()}))
+    AsyncTask::new(JsNfsBlobArrayBuffer(JsNfsBlob{content: self.content.clone(), size: self.size, type_: self.type_.clone()}))
   }
 
   fn get_index_from_optional(&self, pos: Option<i64>, max: i64, def: i64) -> usize {
@@ -886,7 +886,7 @@ impl JsNfsBlob {
     let start = self.get_index_from_optional(start, len, 0);
     let end = self.get_index_from_optional(end, len, len);
     let content = self.content.get(start..end).unwrap_or_default().to_vec();
-    Ok(JsNfsBlob{size: content.len() as i64, _type: content_type.unwrap_or_default(), content})
+    Ok(JsNfsBlob{size: content.len() as i64, type_: content_type.unwrap_or_default(), content})
   }
 
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
@@ -944,9 +944,9 @@ impl JsNfsWritableFileStream {
 
   fn parse_write_input_object(&self, obj: Object) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
     if obj.has_named_property(FIELD_TYPE)? {
-      let _type = obj.get_named_property::<Unknown>(FIELD_TYPE)?;
-      if _type.get_type()? == ValueType::String {
-        match _type.coerce_to_string()?.into_utf8()?.as_str()? {
+      let type_ = obj.get_named_property::<Unknown>(FIELD_TYPE)?;
+      if type_.get_type()? == ValueType::String {
+        match type_.coerce_to_string()?.into_utf8()?.as_str()? {
           WRITE_TYPE_SEEK => return self.parse_seek_options(obj),
           WRITE_TYPE_TRUNCATE => return self.parse_truncate_options(obj),
           WRITE_TYPE_WRITE => return self.parse_write_options(obj),
@@ -973,7 +973,7 @@ impl JsNfsWritableFileStream {
       let position = obj.get_named_property::<Unknown>(FIELD_POSITION)?;
       if position.get_type()? == ValueType::Number {
         return Ok(JsNfsWritableFileStreamWriteOptions{
-          _type: WRITE_TYPE_SEEK.to_string(),
+          type_: WRITE_TYPE_SEEK.to_string(),
           data: None,
           position: Some(position.coerce_to_number()?.get_int64()?),
           size: None,
@@ -988,7 +988,7 @@ impl JsNfsWritableFileStream {
       let size = obj.get_named_property::<Unknown>(FIELD_SIZE)?;
       if size.get_type()? == ValueType::Number {
         return Ok(JsNfsWritableFileStreamWriteOptions{
-          _type: WRITE_TYPE_TRUNCATE.to_string(),
+          type_: WRITE_TYPE_TRUNCATE.to_string(),
           data: None,
           position: None,
           size: Some(size.coerce_to_number()?.get_int64()?),
@@ -1059,7 +1059,7 @@ impl JsNfsWritableFileStream {
 
   fn parsed_write_options(&self, data: Option<Vec<u8>>, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
     Ok(JsNfsWritableFileStreamWriteOptions{
-      _type: WRITE_TYPE_WRITE.to_string(),
+      type_: WRITE_TYPE_WRITE.to_string(),
       data,
       position,
       size: None
@@ -1187,7 +1187,7 @@ impl JsNfsWritableFileStream {
 }
 
 struct JsNfsWritableFileStreamWriteOptions {
-  _type: String,
+  type_: String,
   data: Option<Vec<u8>>,
   position: Option<i64>,
   size: Option<i64>
@@ -1206,11 +1206,11 @@ impl napi::Task for JsNfsWritableFileStreamWrite {
   type JsValue = ();
 
   fn compute(&mut self) -> Result<Self::Output> {
-    match self.options._type.as_str() {
+    match self.options.type_.as_str() {
       WRITE_TYPE_WRITE => self.stream.try_seek_and_write_data(&self.options),
       WRITE_TYPE_SEEK => self.stream.try_seek(&self.options),
       WRITE_TYPE_TRUNCATE => self.stream.try_truncate(&self.options),
-      _ => Err(Error::new(Status::GenericFailure, format!("Unknown write type: {:?}", self.options._type.as_str())))
+      _ => Err(Error::new(Status::GenericFailure, format!("Unknown write type: {:?}", self.options.type_.as_str())))
     }
   }
 
@@ -1229,8 +1229,8 @@ fn is_string_object(obj: &Object) -> bool {
 
 fn is_blob(obj: &Object) -> bool {
   if obj.has_named_property(FIELD_TYPE).unwrap() {
-    let _type = obj.get_named_property::<Unknown>(FIELD_TYPE).unwrap();
-    return _type.get_type().unwrap() == ValueType::String;
+    let type_ = obj.get_named_property::<Unknown>(FIELD_TYPE).unwrap();
+    return type_.get_type().unwrap() == ValueType::String;
   }
   false
 }
