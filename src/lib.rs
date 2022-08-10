@@ -685,8 +685,9 @@ impl JsNfsFileHandle {
   pub async fn get_file(&self) -> napi::Result<JsNfsFile> {
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
-      let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
-      let type_ = "text/plain".to_string(); // FIXME
+      let path = Path::new(self.handle.path.as_str());
+      let nfs_stat = my_nfs.stat64(path)?;
+      let type_ = mime_guess::from_path(path).first_raw().unwrap_or("unknown").to_string();
       let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as i64, type_, last_modified: (nfs_stat.nfs_mtime * 1000) as i64, name: self.name.clone()};
       return Ok(res);
     }
@@ -758,10 +759,11 @@ impl JsNfsFile {
       "writable-truncate" => 5,
       _ => 123
     };
+    let type_ = mime_guess::from_path(Path::new(name.as_str())).first_raw().unwrap_or("unknown").to_string();
     JsNfsFile{
       handle: JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()},
       size,
-      type_: "text/plain".to_string(),
+      type_,
       last_modified: 1658159058723,
       name
     }

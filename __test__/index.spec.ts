@@ -386,9 +386,28 @@ test.serial('should return file for file handle', async (t) => {
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
   t.is(file.name, "annar");
-  t.is(file.type, "text/plain");
+  t.is(file.type, "unknown"); // only using file extension to determine MIME type -- since there is no file extension, returned MIME type will be "unknown"
   t.is(file.size, 123);
   t.true(file.lastModified >= 1658159058723);
+})
+
+test.serial('should return file with correct MIME type for files with extension in name', async (t) => {
+  const rootHandle = new JsNfsDirectoryHandle(nfsURL);
+  const files = [
+    {name: "picture.this.png", type: "image/png"},
+    {name: "picture.that.jpg", type: "image/jpeg"},
+    {name: "picture.those.jpeg", type: "image/jpeg"},
+    {name: "binary.data.bin", type: "application/octet-stream"},
+    {name: "text.file.txt", type: "text/plain"},
+  ];
+  for (const {name, type} of files) {
+    const fileHandle = await rootHandle.getFileHandle(name, {create: true});
+    const file = await fileHandle.getFile();
+    t.is(file.name, name);
+    t.is(file.type, type);
+    t.true(file.lastModified >= 1658159058723);
+    await rootHandle.removeEntry(fileHandle.name);
+  }
 })
 
 test.serial('should return array buffer for file', async (t) => {
