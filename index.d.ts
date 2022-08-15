@@ -79,6 +79,10 @@ export class JsNfsBlob {
   stream(): ReadableStream<Uint8Array>
   text(): Promise<string>
 }
+export class JsNfsReadableStreamSource {
+  readonly type: 'bytes'
+  pull(controller: ReadableByteStreamController): void
+}
 export class JsNfsWritableFileStream {
   readonly locked: boolean
   write(data: ArrayBuffer | TypedArray | DataView | Blob | String | string | {type: 'write' | 'seek' | 'truncate', data?: ArrayBuffer | TypedArray | DataView | Blob | String | string, position?: number, size?: number}): Promise<void>

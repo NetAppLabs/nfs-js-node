@@ -777,8 +777,8 @@ impl JsNfsFile {
   }
 
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
-  pub fn stream(&self) -> napi::Result<Value> {
-    self.to_blob().stream()
+  pub fn stream(&self, env: Env) -> napi::Result<Object> {
+    self.to_blob().stream(env)
   }
 
   fn nfs_bytes(&self) -> napi::Result<Vec<u8>> {
@@ -884,11 +884,12 @@ impl JsNfsBlob {
   }
 
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
-  pub fn stream(&self) -> napi::Result<Value> { // TODO
-    let mut obj: Map<String, Value> = Map::new();
-    let _ = obj.insert("locked".to_string(), true.into());
-    let res = Value::Object(obj);
-    Ok(res)
+  pub fn stream(&self, env: Env) -> napi::Result<Object> {
+    let global = env.get_global()?;
+    let constructor = global.get_named_property::<napi::JsFunction>("ReadableStream")?;
+    let arg = JsNfsReadableStreamSource{content: self.content.clone(), count: 0, type_: "bytes".to_string()}.into_instance(env)?;
+    let stream = constructor.new_instance(&[arg])?;
+    Ok(stream)
   }
 
   #[napi]
@@ -914,6 +915,36 @@ impl napi::Task for JsNfsBlobArrayBuffer {
   fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
     let res = env.create_arraybuffer_with_data(output)?.into_raw();
     Ok(res)
+  }
+}
+
+#[napi]
+struct JsNfsReadableStreamSource {
+  content: Vec<u8>,
+  count: usize,
+  #[napi(readonly, ts_type="'bytes'")]
+  pub type_: String
+}
+
+#[napi]
+impl JsNfsReadableStreamSource {
+
+  #[napi]
+  pub fn pull(&mut self, env: Env, #[napi(ts_arg_type="ReadableByteStreamController")] controller: Unknown) {
+    let controller = controller.coerce_to_object().unwrap();
+    if self.count < self.content.len() {
+      let enqueue = controller.get_named_property::<napi::JsFunction>("enqueue").unwrap();
+      // let arg = env.create_uint32(self.content[self.count] as u32).unwrap();
+      // let _ = enqueue.call(Some(&controller), &[arg]).unwrap();
+      // self.count += 1;
+      let arg = env.create_arraybuffer_with_data(self.content.clone()).unwrap();
+      let arg = arg.into_raw().into_typedarray(TypedArrayType::Uint8, self.content.len(), 0).unwrap();
+      let _ = enqueue.call(Some(&controller), &[arg]);
+      self.count = self.content.len();
+    } else {
+      let close = controller.get_named_property::<napi::JsFunction>("close").unwrap();
+      let _ = close.call_without_args(Some(&controller)).unwrap();
+    }
   }
 }
 

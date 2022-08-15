@@ -434,7 +434,13 @@ test.serial('should return stream for file', async (t) => {
   const fileHandle = await rootHandle.getFileHandle("annar");
   const file = await fileHandle.getFile();
   const stream = file.stream();
-  t.true(stream.locked);
+  const reader = stream.getReader();
+  const x = await reader.read();
+  t.false(x.done);
+  t.is(x.value?.length, 123);
+  t.is(String.fromCharCode.apply(null, x.value?.valueOf()), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
+  const y = await reader.read();
+  t.true(y.done);
 })
 
 test.serial('should return stream for blob', async (t) => {
@@ -443,7 +449,13 @@ test.serial('should return stream for blob', async (t) => {
   const file = await fileHandle.getFile();
   const blob = file.slice();
   const stream = blob.stream();
-  t.true(stream.locked);
+  const reader = stream.getReader();
+  const x = await reader.read();
+  t.false(x.done);
+  t.is(x.value?.length, 123);
+  t.is(String.fromCharCode.apply(null, x.value?.valueOf()), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
+  const y = await reader.read();
+  t.true(y.done);
 })
 
 test.serial('should return text for file', async (t) => {
