@@ -674,7 +674,7 @@ impl JsNfsFileHandle {
     Ok(res)
   }
 
-  #[napi]
+  #[napi(ts_return_type="Promise<File>")]
   pub async fn get_file(&self) -> napi::Result<JsNfsFile> {
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
@@ -733,24 +733,7 @@ struct JsNfsFile {
 impl JsNfsFile {
 
   pub fn with_initial_name(name: String) -> Self {
-    let size: i64 = match name.as_str() {
-      "writable-write-string-after-truncate-via-write" => 22,
-      "writable-write-string-after-truncate" => 22,
-      "writable-seek-past-size-and-write-string-via-write" => 11,
-      "writable-seek-and-write-string-object-via-write" => 11,
-      "writable-seek-and-write-string-via-write" => 11,
-      "writable-write-string-after-seek-via-write" => 11,
-      "writable-write-string-after-seek" => 11,
-      "writable-append-string-via-struct" => 27,
-      "writable-append-string" => 27,
-      "writable-write-strings-via-struct" => 41,
-      "writable-write-strings" => 41,
-      "writable-write-string-via-struct" => 23,
-      "writable-write-string" => 23,
-      "writable-truncate-via-write" => 5,
-      "writable-truncate" => 5,
-      _ => 123
-    };
+    let size = JsNfsFile::mock_bytes(name.as_str()).len() as i64;
     let type_ = mime_guess::from_path(Path::new(name.as_str())).first_raw().unwrap_or("unknown").to_string();
     JsNfsFile{
       handle: JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()},
@@ -819,7 +802,11 @@ impl JsNfsFile {
       let _ = nfs_file.pread_into(nfs_stat.nfs_size, 0, buffer)?;
       return Ok(buffer.to_vec());
     }
-    let res = match self.name.as_str() {
+    Ok(JsNfsFile::mock_bytes(self.name.as_str()))
+  }
+
+  fn mock_bytes(name: &str) -> Vec<u8> {
+    match name {
       "writable-write-string-after-truncate-via-write" => "hellbound troublemaker".as_bytes(),
       "writable-write-string-after-truncate" => "hellbound troublemaker".as_bytes(),
       "writable-seek-past-size-and-write-string-via-write" => "hello there".as_bytes(),
@@ -842,8 +829,7 @@ impl JsNfsFile {
       "writable-truncate-via-write" => "hello".as_bytes(),
       "writable-truncate" => "hello".as_bytes(),
       _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".as_bytes()
-    };
-    Ok(res.to_vec())
+    }.to_vec()
   }
 
   #[napi]

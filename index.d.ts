@@ -58,7 +58,7 @@ export class JsNfsFileHandle {
   isSameEntry(other: JsNfsHandle): boolean
   queryPermission(perm: JsNfsHandlePermissionDescriptor): Promise<string>
   requestPermission(perm: JsNfsHandlePermissionDescriptor): Promise<string>
-  getFile(): Promise<JsNfsFile>
+  getFile(): Promise<File>
   createWritable(options?: JsNfsCreateWritableOptions): Promise<JsNfsWritableFileStream>
 }
 export class JsNfsFile {
