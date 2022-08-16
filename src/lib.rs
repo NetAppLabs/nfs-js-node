@@ -761,24 +761,53 @@ impl JsNfsFile {
     }
   }
 
-  fn to_blob(&self) -> JsNfsBlob {
-    let content = self.nfs_bytes().unwrap();
-    JsNfsBlob{size: content.len() as i64, type_: self.type_.clone(), content}
-  }
-
   #[napi(ts_return_type="Promise<ArrayBuffer>")]
   pub fn array_buffer(&self) -> AsyncTask<JsNfsFileArrayBuffer> {
     AsyncTask::new(JsNfsFileArrayBuffer(JsNfsFile{handle: self.handle.clone(), size: self.size, type_: self.type_.clone(), last_modified: self.last_modified, name: self.name.clone()}))
   }
 
-  #[napi]
-  pub fn slice(&self, #[napi(ts_arg_type="number")] start: Option<i64>, #[napi(ts_arg_type="number")] end: Option<i64>, #[napi(ts_arg_type="string")] content_type: Option<String>) -> napi::Result<JsNfsBlob> {
-    self.to_blob().slice(start, end, content_type)
+  fn get_index_from_optional(&self, pos: Option<i64>, max: i64, def: i64) -> usize {
+    pos.and_then(|mut pos| {
+      if pos < 0 {
+        pos += max;
+        if pos < 0 {
+          pos = 0;
+        }
+      } else if pos > max {
+        pos = max;
+      }
+      Some(pos)
+    }).unwrap_or(def) as usize
+  }
+
+  pub fn nfs_slice(&self, start: Option<i64>, end: Option<i64>) -> napi::Result<Vec<u8>> {
+    let content = self.nfs_bytes()?;
+    let len = content.len() as i64;
+    let start = self.get_index_from_optional(start, len, 0);
+    let end = self.get_index_from_optional(end, len, len);
+    Ok(content.get(start..end).unwrap_or_default().to_vec())
+  }
+
+  #[napi(ts_return_type="Blob")]
+  pub fn slice(&self, env: Env, #[napi(ts_arg_type="number")] start: Option<i64>, #[napi(ts_arg_type="number")] end: Option<i64>, #[napi(ts_arg_type="string")] content_type: Option<String>) -> napi::Result<Object> {
+    let sliced = self.nfs_slice(start, end)?;
+    let mut arg1 = env.create_array_with_length(1)?;
+    let _ = arg1.set_element(0, env.create_arraybuffer_with_data(sliced)?.into_raw().coerce_to_object()?)?;
+    let mut arg2 = env.create_object()?;
+    let _ = arg2.set_named_property("type", env.create_string(content_type.unwrap_or_default().as_str())?)?;
+    let global = env.get_global()?;
+    let constructor = global.get_named_property::<napi::JsFunction>("Blob")?;
+    let blob = constructor.new_instance(&[arg1, arg2])?;
+    Ok(blob)
   }
 
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
   pub fn stream(&self, env: Env) -> napi::Result<Object> {
-    self.to_blob().stream(env)
+    let global = env.get_global()?;
+    let constructor = global.get_named_property::<napi::JsFunction>("ReadableStream")?;
+    let arg = JsNfsReadableStreamSource{content: self.nfs_bytes()?, count: 0, type_: "bytes".to_string()}.into_instance(env)?;
+    let stream = constructor.new_instance(&[arg])?;
+    Ok(stream)
   }
 
   fn nfs_bytes(&self) -> napi::Result<Vec<u8>> {
@@ -835,81 +864,6 @@ impl napi::Task for JsNfsFileArrayBuffer {
 
   fn compute(&mut self) -> Result<Self::Output> {
     self.0.nfs_bytes()
-  }
-
-  fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
-    let res = env.create_arraybuffer_with_data(output)?.into_raw();
-    Ok(res)
-  }
-}
-
-#[napi]
-struct JsNfsBlob {
-  content: Vec<u8>,
-  #[napi(readonly)]
-  pub size: i64,
-  #[napi(readonly)]
-  pub type_: String
-}
-
-#[napi]
-impl JsNfsBlob {
-
-  #[napi(ts_return_type="Promise<ArrayBuffer>")]
-  pub fn array_buffer(&self) -> AsyncTask<JsNfsBlobArrayBuffer> {
-    AsyncTask::new(JsNfsBlobArrayBuffer(JsNfsBlob{content: self.content.clone(), size: self.size, type_: self.type_.clone()}))
-  }
-
-  fn get_index_from_optional(&self, pos: Option<i64>, max: i64, def: i64) -> usize {
-    pos.and_then(|mut pos| {
-      if pos < 0 {
-        pos += max;
-        if pos < 0 {
-          pos = 0;
-        }
-      } else if pos > max {
-        pos = max;
-      }
-      Some(pos)
-    }).unwrap_or(def) as usize
-  }
-
-  #[napi]
-  pub fn slice(&self, #[napi(ts_arg_type="number")] start: Option<i64>, #[napi(ts_arg_type="number")] end: Option<i64>, #[napi(ts_arg_type="string")] content_type: Option<String>) -> napi::Result<JsNfsBlob> {
-    let len = self.content.len() as i64;
-    let start = self.get_index_from_optional(start, len, 0);
-    let end = self.get_index_from_optional(end, len, len);
-    let content = self.content.get(start..end).unwrap_or_default().to_vec();
-    Ok(JsNfsBlob{size: content.len() as i64, type_: content_type.unwrap_or_default(), content})
-  }
-
-  #[napi(ts_return_type="ReadableStream<Uint8Array>")]
-  pub fn stream(&self, env: Env) -> napi::Result<Object> {
-    let global = env.get_global()?;
-    let constructor = global.get_named_property::<napi::JsFunction>("ReadableStream")?;
-    let arg = JsNfsReadableStreamSource{content: self.content.clone(), count: 0, type_: "bytes".to_string()}.into_instance(env)?;
-    let stream = constructor.new_instance(&[arg])?;
-    Ok(stream)
-  }
-
-  #[napi]
-  pub async fn text(&self) -> napi::Result<String> {
-    let res = str::from_utf8(&self.content).unwrap().to_string();
-    Ok(res)
-  }
-}
-
-struct JsNfsBlobArrayBuffer(JsNfsBlob);
-
-#[napi]
-impl napi::Task for JsNfsBlobArrayBuffer {
-
-  type Output = Vec<u8>;
-
-  type JsValue = napi::JsArrayBuffer;
-
-  fn compute(&mut self) -> Result<Self::Output> {
-    Ok(self.0.content.clone())
   }
 
   fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {

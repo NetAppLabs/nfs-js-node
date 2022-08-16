@@ -67,15 +67,7 @@ export class JsNfsFile {
   readonly lastModified: number
   readonly name: string
   arrayBuffer(): Promise<ArrayBuffer>
-  slice(start?: number, end?: number, contentType?: string): JsNfsBlob
-  stream(): ReadableStream<Uint8Array>
-  text(): Promise<string>
-}
-export class JsNfsBlob {
-  readonly size: number
-  readonly type: string
-  arrayBuffer(): Promise<ArrayBuffer>
-  slice(start?: number, end?: number, contentType?: string): JsNfsBlob
+  slice(start?: number, end?: number, contentType?: string): Blob
   stream(): ReadableStream<Uint8Array>
   text(): Promise<string>
 }

@@ -226,7 +226,6 @@ const {
   JsNfsDirectoryHandle,
   JsNfsFileHandle,
   JsNfsFile,
-  JsNfsBlob,
   JsNfsReadableStreamSource,
   JsNfsWritableFileStream,
 } = nativeBinding
@@ -238,6 +237,5 @@ module.exports.JsNfsHandle = JsNfsHandle
 module.exports.JsNfsDirectoryHandle = JsNfsDirectoryHandle
 module.exports.JsNfsFileHandle = JsNfsFileHandle
 module.exports.JsNfsFile = JsNfsFile
-module.exports.JsNfsBlob = JsNfsBlob
 module.exports.JsNfsReadableStreamSource = JsNfsReadableStreamSource
 module.exports.JsNfsWritableFileStream = JsNfsWritableFileStream
