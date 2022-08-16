@@ -84,3 +84,9 @@ export class JsNfsWritableFileStream {
   abort(reason: string): Promise<string>
   getWriter(): WritableStreamDefaultWriter
 }
+export class JsNfsWritableStreamSink {
+  start(controller?: WritableStreamDefaultController): Promise<void>
+  abort(reason: string): Promise<string>
+  close(controller?: WritableStreamDefaultController): Promise<void>
+  write(chunk: any, controller?: WritableStreamDefaultController): Promise<void>
+}

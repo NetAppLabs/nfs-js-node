@@ -826,6 +826,7 @@ impl JsNfsFile {
       "writable-write-typed-array" => &[0,0,1,0,0,0,2,0,0,0,0,0,3,0,0,0,0,0,0,0,4,0,5,0],
       "writable-write-data-view-via-struct" => &[0x00,0x00,0x80,0x00,0x31,0xd4,0x07,0x42,0xff,0xff,0xff,0xff,0xff,0xff,0xf0,0xfe,0x15,0xcd,0x5b,0x07,0xd4,0x31,0x7f],
       "writable-write-data-view" => &[0x42,0xff,0xff,0xff,0xff,0xff,0xff,0xf0,0xfe,0x15,0xcd,0x5b,0x07,0xd4,0x31,0x7f],
+      "writable-writer" => "written using writable writer".as_bytes(),
       "writable-truncate-via-write" => "hello".as_bytes(),
       "writable-truncate" => "hello".as_bytes(),
       _ => "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".as_bytes()
@@ -1137,16 +1138,16 @@ impl JsNfsWritableFileStream {
   }
 
   #[napi(ts_return_type="WritableStreamDefaultWriter")]
-  pub fn get_writer(&mut self) -> napi::Result<Value> { // TODO
+  pub fn get_writer(&'static mut self, env: Env) -> napi::Result<Object> {
     if self.locked {
-      return Err(Error::new(Status::GenericFailure, "Writable file stream locked by another writer".to_string()));
+      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is locked".to_string()));
     }
-    let mut obj: Map<String, Value> = Map::new();
-    let _ = obj.insert("ready".to_string(), true.into());
-    let _ = obj.insert("closed".to_string(), false.into());
-    let _ = obj.insert("desiredSize".to_string(), 123.into());
-    let res = Value::Object(obj);
-    self.locked = true;
+    let global = env.get_global()?;
+    let sink = JsNfsWritableStreamSink{stream: self, closed: false}.into_instance(env)?;
+    let stream_constructor = global.get_named_property::<napi::JsFunction>("WritableStream")?;
+    let arg = stream_constructor.new_instance(&[sink])?;
+    let constructor = global.get_named_property::<napi::JsFunction>("WritableStreamDefaultWriter")?;
+    let res = constructor.new_instance(&[arg])?;
     Ok(res)
   }
 }
@@ -1177,6 +1178,111 @@ impl napi::Task for JsNfsWritableFileStreamWrite {
       WRITE_TYPE_TRUNCATE => self.stream.try_truncate(&self.options),
       _ => Err(Error::new(Status::GenericFailure, format!("Unknown write type: {:?}", self.options.type_.as_str())))
     }
+  }
+
+  fn resolve(&mut self, _env: Env, _output: Self::Output) -> Result<Self::JsValue> {
+    Ok(())
+  }
+}
+
+#[napi]
+struct JsNfsWritableStreamSink {
+  stream: &'static mut JsNfsWritableFileStream,
+  closed: bool
+}
+
+#[napi]
+impl JsNfsWritableStreamSink {
+
+  #[napi(ts_return_type="Promise<void>")]
+  pub fn start(&'static mut self, #[napi(ts_arg_type="WritableStreamDefaultController")] _controller: Option<Unknown>) -> AsyncTask<JsNfsWritableStreamStart> {
+    AsyncTask::new(JsNfsWritableStreamStart(self))
+  }
+
+  #[napi]
+  pub async fn abort(&'static mut self, reason: String) -> napi::Result<String> {
+    self.close_stream();
+    Ok(reason)
+  }
+
+  fn close_stream(&mut self) {
+    self.closed = true;
+  }
+
+  #[napi(ts_return_type="Promise<void>")]
+  pub fn close(&'static mut self, #[napi(ts_arg_type="WritableStreamDefaultController")] _controller: Option<Unknown>) -> napi::Result<AsyncTask<JsNfsWritableStreamClose>> {
+    if self.closed {
+      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".to_string()));
+    }
+    Ok(AsyncTask::new(JsNfsWritableStreamClose(self)))
+  }
+
+  #[napi(ts_return_type="Promise<void>")]
+  pub fn write(&'static mut self, #[napi(ts_arg_type="any")] chunk: Unknown, #[napi(ts_arg_type="WritableStreamDefaultController")] _controller: Option<Unknown>) -> napi::Result<AsyncTask<JsNfsWritableStreamWrite>> {
+    if self.closed {
+      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".to_string()));
+    }
+    let parsed = self.stream.parse_write_input(chunk);
+    let input = parsed.unwrap_or(JsNfsWritableFileStreamWriteOptions{type_: "".to_string(), data: None, position: None, size: None});
+    if input.type_ != WRITE_TYPE_WRITE.to_string() {
+      return Err(Error::new(Status::InvalidArg, "Invalid chunk".to_string()));
+    }
+    Ok(AsyncTask::new(JsNfsWritableStreamWrite{stream: self, chunk: input.data.unwrap_or_default()}))
+  }
+}
+
+struct JsNfsWritableStreamStart(&'static mut JsNfsWritableStreamSink);
+
+#[napi]
+impl napi::Task for JsNfsWritableStreamStart {
+
+  type Output = ();
+
+  type JsValue = ();
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    self.0.stream.locked = true;
+    Ok(())
+  }
+
+  fn resolve(&mut self, _env: Env, _output: Self::Output) -> Result<Self::JsValue> {
+    Ok(())
+  }
+}
+
+struct JsNfsWritableStreamClose(&'static mut JsNfsWritableStreamSink);
+
+#[napi]
+impl napi::Task for JsNfsWritableStreamClose {
+
+  type Output = ();
+
+  type JsValue = ();
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    self.0.close_stream();
+    Ok(())
+  }
+
+  fn resolve(&mut self, _env: Env, _output: Self::Output) -> Result<Self::JsValue> {
+    Ok(())
+  }
+}
+
+struct JsNfsWritableStreamWrite {
+  stream: &'static mut JsNfsWritableStreamSink,
+  chunk: Vec<u8>
+}
+
+#[napi]
+impl napi::Task for JsNfsWritableStreamWrite {
+
+  type Output = ();
+
+  type JsValue = ();
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    self.stream.stream.nfs_write(self.chunk.as_slice())
   }
 
   fn resolve(&mut self, _env: Env, _output: Self::Output) -> Result<Self::JsValue> {

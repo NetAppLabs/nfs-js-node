@@ -527,7 +527,7 @@ test.serial('should return error when writing unsupported type', async (t) => {
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-type", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = t.throws(function() { writable.write(69); });
+  const err = t.throws(() => writable.write(69));
   t.is(err?.message, "Writing unsupported type");
   await rootHandle.removeEntry(fileHandle.name);
 })
@@ -598,7 +598,7 @@ test.serial('should return error when writing unsupported object type', async (t
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-type", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = t.throws(function() { writable.write({}); });
+  const err = t.throws(() => writable.write({}));
   t.is(err?.message, "Writing unsupported type");
   await rootHandle.removeEntry(fileHandle.name);
 })
@@ -607,7 +607,7 @@ test.serial('should return error when writing unsupported object data type objec
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-data-type-object", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = t.throws(function() { writable.write({type: "write", data: {}}); });
+  const err = t.throws(() => writable.write({type: "write", data: {}}));
   t.is(err?.message, "Writing unsupported data type");
   await rootHandle.removeEntry(fileHandle.name);
 })
@@ -616,7 +616,7 @@ test.serial('should return error when writing unsupported object data type', asy
   const rootHandle = new JsNfsDirectoryHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-data-type", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = t.throws(function() { writable.write({type: "write", data: 7}); });
+  const err = t.throws(() => writable.write({type: "write", data: 7}));
   t.is(err?.message, "Writing unsupported data type");
   await rootHandle.removeEntry(fileHandle.name);
 })
@@ -954,10 +954,18 @@ test.serial('should return writer for writable file stream', async (t) => {
   const writable = await fileHandle.createWritable();
   t.false(writable.locked);
   const writer = writable.getWriter();
+  await new Promise(r => setTimeout(r, 10)); // XXX: writable.locked is set by write stream sink's start method which gets invoked asynchronously
   t.true(writable.locked);
-  t.true(writer.ready);
-  t.false(writer.closed);
-  t.is(writer.desiredSize, 123);
+  t.is(writer.desiredSize, 1);
+  await t.notThrowsAsync(writer.ready.then(() => writer.write("written using writable writer")));
+  await t.notThrowsAsync(writer.close());
+  await t.notThrowsAsync(writer.abort("I've got my reasons"));
+  writer.releaseLock();
+  t.true(writable.locked); // FIXME: should not be locked anymore
+  const file = await fileHandle.getFile();
+  t.is(file.size, 29);
+  const text = await file.text();
+  t.is(text, "written using writable writer");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -967,9 +975,15 @@ test.serial('should return error when getting writer for locked writable file st
   const writable = await fileHandle.createWritable();
   t.false(writable.locked);
   const writer = writable.getWriter();
+  await new Promise(r => setTimeout(r, 10)); // XXX: writable.locked is set by write stream sink's start method which gets invoked asynchronously
   t.true(writable.locked);
-  t.false(writer.closed);
-  const err = t.throws(function() { writable.getWriter(); });
-  t.is(err?.message, 'Writable file stream locked by another writer');
+  t.is(writer.desiredSize, 1);
+  const err = t.throws((() => writable.getWriter()));
+  t.is(err?.message, 'Invalid state: WritableStream is locked');
+  await t.notThrowsAsync(writer.abort("I've got my reasons"));
+  const err2 = await t.throwsAsync(writer.close());
+  t.is(err2?.message, 'Invalid state: WritableStream is closed');
+  writer.releaseLock();
+  t.true(writable.locked); // FIXME: should not be locked anymore
   await rootHandle.removeEntry(fileHandle.name);
 })
