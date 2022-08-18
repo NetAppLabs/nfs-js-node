@@ -110,8 +110,10 @@ const FIELD_PATH: &str = "path";
 const FIELD_DATA: &str = "data";
 const FIELD_TYPE: &str = "type";
 const FIELD_SIZE: &str = "size";
+const FIELD_CLOSE: &str = "close";
 const FIELD_LENGTH: &str = "length";
 const FIELD_BUFFER: &str = "buffer";
+const FIELD_ENQUEUE: &str = "enqueue";
 const FIELD_POSITION: &str = "position";
 const FIELD_SUBSTRING: &str = "substring";
 const FIELD_BYTE_LENGTH: &str = "byteLength";
@@ -129,6 +131,19 @@ const _PERM_STATE_PROMPT: &str = "prompt";
 const WRITE_TYPE_WRITE: &str = "write";
 const WRITE_TYPE_SEEK: &str = "seek";
 const WRITE_TYPE_TRUNCATE: &str = "truncate";
+
+const DIR_ROOT: &str = "/";
+const DIR_CURRENT: &str = ".";
+const DIR_PARENT: &str = "..";
+
+const MIME_TYPE_UNKNOWN: &str = "unknown";
+
+const JS_TYPE_BLOB: &str = "Blob";
+const JS_TYPE_READABLE_STREAM: &str = "ReadableStream";
+const JS_TYPE_WRITABLE_STREAM: &str = "WritableStream";
+const JS_TYPE_WRITABLE_STREAM_DEFAULT_WRITER: &str = "WritableStreamDefaultWriter";
+
+const READABLE_STREAM_SOURCE_TYPE_BYTES: &str = "bytes";
 
 #[napi(iterator)]
 struct JsNfsDirectoryHandleEntries {
@@ -249,7 +264,7 @@ struct JsNfsGetDirectoryOptions {
 impl Default for JsNfsGetDirectoryOptions {
 
   fn default() -> Self {
-    JsNfsGetDirectoryOptions{create: false}
+    Self{create: Default::default()}
   }
 }
 
@@ -261,7 +276,7 @@ struct JsNfsGetFileOptions {
 impl Default for JsNfsGetFileOptions {
 
   fn default() -> Self {
-    JsNfsGetFileOptions{create: false}
+    Self{create: Default::default()}
   }
 }
 
@@ -273,7 +288,7 @@ struct JsNfsRemoveOptions {
 impl Default for JsNfsRemoveOptions {
 
   fn default() -> Self {
-    JsNfsRemoveOptions{recursive: false}
+    Self{recursive: Default::default()}
   }
 }
 
@@ -285,7 +300,7 @@ struct JsNfsCreateWritableOptions {
 impl Default for JsNfsCreateWritableOptions {
 
   fn default() -> Self {
-    JsNfsCreateWritableOptions{keep_existing_data: false}
+    Self{keep_existing_data: Default::default()}
   }
 }
 
@@ -307,10 +322,9 @@ impl JsNfsHandle {
     if env::var("TEST_USING_NFS").is_ok() {
       let mut nfs = Nfs::new().unwrap();
       let _ = nfs.parse_url_mount(url.as_str()).unwrap();
-      let name = "/";
-      return JsNfsHandle{nfs: Some(nfs), path: name.to_string(), kind: KIND_DIRECTORY.to_string(), name: name.to_string()};
+      return JsNfsHandle{nfs: Some(nfs), path: DIR_ROOT.to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_ROOT.to_string()};
     }
-    JsNfsHandle{nfs: None, path: "/".to_string(), kind: KIND_DIRECTORY.to_string(), name: "/".to_string()}
+    JsNfsHandle{nfs: None, path: DIR_ROOT.to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_ROOT.to_string()}
   }
 
   fn is_same(&self, other: &JsNfsHandle) -> bool {
@@ -333,7 +347,7 @@ impl JsNfsHandle {
         return Ok(PERM_STATE_GRANTED.to_string());
       }
     }
-    if self.nfs.is_none() && ((self.name != "3" && self.name != "quatre") || perm.mode != PERM_READWRITE.to_string()) {
+    if self.nfs.is_none() && ((self.name != "3" && self.name != "quatre") || perm.mode != PERM_READWRITE) {
       return Ok(PERM_STATE_GRANTED.to_string());
     }
     Ok(PERM_STATE_DENIED.to_string())
@@ -423,31 +437,31 @@ impl JsNfsDirectoryHandle {
           };
           let name = e.path.into_os_string().into_string().unwrap();
           let path = match kind.as_str() {
-            KIND_DIRECTORY => format!("{}{}/", self.handle.path, name),
-            _ => format!("{}{}", self.handle.path, name)
+            KIND_DIRECTORY => format_dir_path(&self.handle.path, &name),
+            _ => format_file_path(&self.handle.path, &name)
           };
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind, name});
         }
       }
     } else {
       match self.name.as_str() {
-        "/" => {
+        DIR_ROOT => {
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/3".to_string(), kind: KIND_FILE.to_string(), name: "3".to_string()});
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/annar".to_string(), kind: KIND_FILE.to_string(), name: "annar".to_string()});
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/".to_string(), kind: KIND_DIRECTORY.to_string(), name: "quatre".to_string()});
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/".to_string(), kind: KIND_DIRECTORY.to_string(), name: "first".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/../".to_string(), kind: KIND_DIRECTORY.to_string(), name: "..".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/./".to_string(), kind: KIND_DIRECTORY.to_string(), name: ".".to_string()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/../".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_PARENT.to_string()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/./".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_CURRENT.to_string()});
         },
         "first" => {
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/comment".to_string(), kind: KIND_FILE.to_string(), name: "comment".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/../".to_string(), kind: KIND_DIRECTORY.to_string(), name: "..".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/./".to_string(), kind: KIND_DIRECTORY.to_string(), name: ".".to_string()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/../".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_PARENT.to_string()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/./".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_CURRENT.to_string()});
         },
         "quatre" => {
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/points".to_string(), kind: KIND_FILE.to_string(), name: "points".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/../".to_string(), kind: KIND_DIRECTORY.to_string(), name: "..".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/./".to_string(), kind: KIND_DIRECTORY.to_string(), name: ".".to_string()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/../".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_PARENT.to_string()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/./".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_CURRENT.to_string()});
         },
         _ => ()
       };
@@ -476,14 +490,14 @@ impl JsNfsDirectoryHandle {
   #[napi]
   pub async fn get_directory_handle(&self, name: String, #[napi(ts_arg_type="JsNfsGetDirectoryOptions")] options: Option<JsNfsGetDirectoryOptions>) -> napi::Result<JsNfsDirectoryHandle> {
     for entry in self.nfs_entries()? {
-      if entry.kind == KIND_DIRECTORY.to_string() && entry.name == name {
+      if entry.kind == KIND_DIRECTORY && entry.name == name {
         return Ok(entry.into())
       }
     }
     if !options.unwrap_or_default().create {
       return Err(Error::new(Status::GenericFailure, format!("Directory {:?} not found", name)));
     }
-    let path = format!("{}{}/", self.handle.path, name);
+    let path = format_dir_path(&self.handle.path, &name);
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
       let _ = my_nfs.mkdir(Path::new(path.trim_end_matches('/')))?;
@@ -495,14 +509,14 @@ impl JsNfsDirectoryHandle {
   #[napi]
   pub async fn get_file_handle(&self, name: String, #[napi(ts_arg_type="JsNfsGetFileOptions")] options: Option<JsNfsGetFileOptions>) -> napi::Result<JsNfsFileHandle> {
     for entry in self.nfs_entries()? {
-      if entry.kind == KIND_FILE.to_string() && entry.name == name {
+      if entry.kind == KIND_FILE && entry.name == name {
         return Ok(entry.into())
       }
     }
     if !options.unwrap_or_default().create {
       return Err(Error::new(Status::GenericFailure, format!("File {:?} not found", name)));
     }
-    let path = format!("{}{}", self.handle.path, name);
+    let path = format_file_path(&self.handle.path, &name);
     if let Some(nfs) = &self.handle.nfs {
       let mut my_nfs = nfs.to_owned();
       let _ = my_nfs.create(Path::new(path.as_str()), OFlag::O_SYNC, Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IWGRP | Mode::S_IROTH | Mode::S_IWOTH)?;
@@ -517,13 +531,13 @@ impl JsNfsDirectoryHandle {
         KIND_DIRECTORY => JsNfsDirectoryHandle::from(entry.to_owned()).nfs_entries()?,
         _ => Vec::new(),
       };
-      if entry.kind == KIND_DIRECTORY.to_string() && !recursive && subentries.len() > 2 {
+      if entry.kind == KIND_DIRECTORY && !recursive && subentries.len() > 2 {
         return Err(Error::new(Status::GenericFailure, format!("Directory {:?} is not empty", entry.name)));
       }
 
-      if entry.kind == KIND_DIRECTORY.to_string() {
+      if entry.kind == KIND_DIRECTORY {
         for subentry in subentries {
-          if subentry.name != "." && subentry.name != ".." {
+          if subentry.name != DIR_CURRENT && subentry.name != DIR_PARENT {
             self.nfs_remove(&subentry, recursive)?;
           }
         }
@@ -533,7 +547,7 @@ impl JsNfsDirectoryHandle {
         nfs.unlink(Path::new(entry.path.as_str()))?;
       }
     } else {
-      if entry.name == "first".to_string() && !recursive {
+      if entry.name == "first" && !recursive {
         return Err(Error::new(Status::GenericFailure, format!("Directory {:?} is not empty", entry.name)));
       }
     }
@@ -561,7 +575,7 @@ impl JsNfsDirectoryHandle {
         return Ok(res);
       }
 
-      if subentry.kind == KIND_DIRECTORY && subentry.name != ".".to_string() && subentry.name != "..".to_string() {
+      if subentry.kind == KIND_DIRECTORY && subentry.name != DIR_CURRENT && subentry.name != DIR_PARENT {
         let subdir = JsNfsDirectoryHandle::from(subentry);
         let res = subdir.nfs_resolve(subdir.nfs_entries()?, possible_descendant);
         if res.is_ok() {
@@ -680,7 +694,7 @@ impl JsNfsFileHandle {
       let my_nfs = nfs.to_owned();
       let path = Path::new(self.handle.path.as_str());
       let nfs_stat = my_nfs.stat64(path)?;
-      let type_ = mime_guess::from_path(path).first_raw().unwrap_or("unknown").to_string();
+      let type_ = mime_guess::from_path(path).first_raw().unwrap_or(MIME_TYPE_UNKNOWN).to_string();
       let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as i64, type_, last_modified: (nfs_stat.nfs_mtime * 1000) as i64, name: self.name.clone()};
       return Ok(res);
     }
@@ -734,7 +748,7 @@ impl JsNfsFile {
 
   pub fn with_initial_name(name: String) -> Self {
     let size = JsNfsFile::mock_bytes(name.as_str()).len() as i64;
-    let type_ = mime_guess::from_path(Path::new(name.as_str())).first_raw().unwrap_or("unknown").to_string();
+    let type_ = mime_guess::from_path(Path::new(name.as_str())).first_raw().unwrap_or(MIME_TYPE_UNKNOWN).to_string();
     JsNfsFile{
       handle: JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()},
       size,
@@ -777,9 +791,9 @@ impl JsNfsFile {
     let mut arg1 = env.create_array_with_length(1)?;
     let _ = arg1.set_element(0, env.create_arraybuffer_with_data(sliced)?.into_raw().coerce_to_object()?)?;
     let mut arg2 = env.create_object()?;
-    let _ = arg2.set_named_property("type", env.create_string(content_type.unwrap_or_default().as_str())?)?;
+    let _ = arg2.set_named_property(FIELD_TYPE, env.create_string(content_type.unwrap_or_default().as_str())?)?;
     let global = env.get_global()?;
-    let constructor = global.get_named_property::<napi::JsFunction>("Blob")?;
+    let constructor = global.get_named_property::<napi::JsFunction>(JS_TYPE_BLOB)?;
     let blob = constructor.new_instance(&[arg1, arg2])?;
     Ok(blob)
   }
@@ -787,8 +801,8 @@ impl JsNfsFile {
   #[napi(ts_return_type="ReadableStream<Uint8Array>")]
   pub fn stream(&self, env: Env) -> napi::Result<Object> {
     let global = env.get_global()?;
-    let constructor = global.get_named_property::<napi::JsFunction>("ReadableStream")?;
-    let arg = JsNfsReadableStreamSource{content: self.nfs_bytes()?, count: 0, type_: "bytes".to_string()}.into_instance(env)?;
+    let constructor = global.get_named_property::<napi::JsFunction>(JS_TYPE_READABLE_STREAM)?;
+    let arg = JsNfsReadableStreamSource{content: self.nfs_bytes()?, count: 0, type_: READABLE_STREAM_SOURCE_TYPE_BYTES.to_string()}.into_instance(env)?;
     let stream = constructor.new_instance(&[arg])?;
     Ok(stream)
   }
@@ -874,7 +888,7 @@ impl JsNfsReadableStreamSource {
   pub fn pull(&mut self, env: Env, #[napi(ts_arg_type="ReadableByteStreamController")] controller: Unknown) {
     let controller = controller.coerce_to_object().unwrap();
     if self.count < self.content.len() {
-      let enqueue = controller.get_named_property::<napi::JsFunction>("enqueue").unwrap();
+      let enqueue = controller.get_named_property::<napi::JsFunction>(FIELD_ENQUEUE).unwrap();
       // let arg = env.create_uint32(self.content[self.count] as u32).unwrap();
       // let _ = enqueue.call(Some(&controller), &[arg]).unwrap();
       // self.count += 1;
@@ -883,7 +897,7 @@ impl JsNfsReadableStreamSource {
       let _ = enqueue.call(Some(&controller), &[arg]);
       self.count = self.content.len();
     } else {
-      let close = controller.get_named_property::<napi::JsFunction>("close").unwrap();
+      let close = controller.get_named_property::<napi::JsFunction>(FIELD_CLOSE).unwrap();
       let _ = close.call_without_args(Some(&controller)).unwrap();
     }
   }
@@ -920,18 +934,14 @@ impl JsNfsWritableFileStream {
         };
       }
     }
-    if is_string_object(&obj) {
-      return self.parse_string(obj.coerce_to_string()?, None);
-    } else if is_blob(&obj) {
-      return self.parse_blob(obj, None);
-    } else if is_typed_array(&obj) {
-      return self.parse_typed_array(obj, None);
-    } else if is_data_view(&obj) {
-      return self.parse_data_view(obj, None);
-    } else if is_array_buffer(&obj) {
-      return self.parse_array_buffer(obj, None);
+    match () {
+      _ if is_string_object(&obj)? => self.parse_string(obj.coerce_to_string()?, None),
+      _ if is_blob(&obj)? => self.parse_blob(obj, None),
+      _ if is_typed_array(&obj)? => self.parse_typed_array(obj, None),
+      _ if is_data_view(&obj)? => self.parse_data_view(obj, None),
+      _ if is_array_buffer(&obj)? => self.parse_array_buffer(obj, None),
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()))
     }
-    Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()))
   }
 
   fn parse_seek_options(&self, obj: Object) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
@@ -946,7 +956,7 @@ impl JsNfsWritableFileStream {
         });
       }
     }
-    Err(Error::new(Status::InvalidArg, format!("Property position of type number is required when writing object with type={:?}", WRITE_TYPE_SEEK.to_string())))
+    Err(Error::new(Status::InvalidArg, format!("Property position of type number is required when writing object with type={:?}", WRITE_TYPE_SEEK)))
   }
 
   fn parse_truncate_options(&self, obj: Object) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
@@ -961,7 +971,7 @@ impl JsNfsWritableFileStream {
         });
       }
     }
-    Err(Error::new(Status::InvalidArg, format!("Property size of type number is required when writing object with type={:?}", WRITE_TYPE_TRUNCATE.to_string())))
+    Err(Error::new(Status::InvalidArg, format!("Property size of type number is required when writing object with type={:?}", WRITE_TYPE_TRUNCATE)))
   }
 
   fn parse_write_options(&self, obj: Object) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
@@ -975,7 +985,7 @@ impl JsNfsWritableFileStream {
     if obj.has_named_property(FIELD_DATA)? {
       return self.parse_wrapped_data(obj.get_named_property::<Unknown>(FIELD_DATA)?, pos);
     }
-    Err(Error::new(Status::InvalidArg, format!("Property data of type object or string is required when writing object with type={:?}", WRITE_TYPE_WRITE.to_string())))
+    Err(Error::new(Status::InvalidArg, format!("Property data of type object or string is required when writing object with type={:?}", WRITE_TYPE_WRITE)))
   }
 
   fn parse_wrapped_data(&self, data: Unknown, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
@@ -987,18 +997,14 @@ impl JsNfsWritableFileStream {
   }
 
   fn parse_wrapped_data_object(&self, data: Object, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
-    if is_string_object(&data) {
-      return self.parse_string(data.coerce_to_string()?, position);
-    } else if is_blob(&data) {
-      return self.parse_blob(data, position);
-    } else if is_typed_array(&data) {
-      return self.parse_typed_array(data, position);
-    } else if is_data_view(&data) {
-      return self.parse_data_view(data, position);
-    } else if is_array_buffer(&data) {
-      return self.parse_array_buffer(data, position);
+    match () {
+      _ if is_string_object(&data)? => self.parse_string(data.coerce_to_string()?, position),
+      _ if is_blob(&data)? => self.parse_blob(data, position),
+      _ if is_typed_array(&data)? => self.parse_typed_array(data, position),
+      _ if is_data_view(&data)? => self.parse_data_view(data, position),
+      _ if is_array_buffer(&data)? => self.parse_array_buffer(data, position),
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported data type".to_string()))
     }
-    Err(Error::new(Status::InvalidArg, "Writing unsupported data type".to_string()))
   }
 
   fn parse_string(&self, string: napi::JsString, position: Option<i64>) -> napi::Result<JsNfsWritableFileStreamWriteOptions> {
@@ -1048,7 +1054,7 @@ impl JsNfsWritableFileStream {
     if let Some(data) = &options.data {
       return self.nfs_write(data.as_slice());
     }
-    Err(Error::new(Status::InvalidArg, format!("Property data of type object or string is required when writing object with type={:?}", WRITE_TYPE_WRITE.to_string())))
+    Err(Error::new(Status::InvalidArg, format!("Property data of type object or string is required when writing object with type={:?}", WRITE_TYPE_WRITE)))
   }
 
   fn nfs_write(&mut self, bytes: &[u8]) -> napi::Result<Undefined> {
@@ -1078,7 +1084,7 @@ impl JsNfsWritableFileStream {
     if let Some(position) = options.position {
       return self.nfs_seek(position);
     }
-    Err(Error::new(Status::InvalidArg, format!("Property position of type number is required when writing object with type={:?}", WRITE_TYPE_SEEK.to_string())))
+    Err(Error::new(Status::InvalidArg, format!("Property position of type number is required when writing object with type={:?}", WRITE_TYPE_SEEK)))
   }
 
   fn nfs_seek(&mut self, position: i64) -> napi::Result<Undefined> {
@@ -1106,7 +1112,7 @@ impl JsNfsWritableFileStream {
     if let Some(size) = options.size {
       return self.nfs_truncate(size);
     }
-    Err(Error::new(Status::InvalidArg, format!("Property size of type number is required when writing object with type={:?}", WRITE_TYPE_TRUNCATE.to_string())))
+    Err(Error::new(Status::InvalidArg, format!("Property size of type number is required when writing object with type={:?}", WRITE_TYPE_TRUNCATE)))
   }
 
   fn nfs_truncate(&mut self, size: i64) -> napi::Result<Undefined> {
@@ -1144,9 +1150,9 @@ impl JsNfsWritableFileStream {
     }
     let global = env.get_global()?;
     let sink = JsNfsWritableStreamSink{stream: self, closed: false}.into_instance(env)?;
-    let stream_constructor = global.get_named_property::<napi::JsFunction>("WritableStream")?;
+    let stream_constructor = global.get_named_property::<napi::JsFunction>(JS_TYPE_WRITABLE_STREAM)?;
     let arg = stream_constructor.new_instance(&[sink])?;
-    let constructor = global.get_named_property::<napi::JsFunction>("WritableStreamDefaultWriter")?;
+    let constructor = global.get_named_property::<napi::JsFunction>(JS_TYPE_WRITABLE_STREAM_DEFAULT_WRITER)?;
     let res = constructor.new_instance(&[arg])?;
     Ok(res)
   }
@@ -1157,6 +1163,13 @@ struct JsNfsWritableFileStreamWriteOptions {
   data: Option<Vec<u8>>,
   position: Option<i64>,
   size: Option<i64>
+}
+
+impl Default for JsNfsWritableFileStreamWriteOptions {
+
+  fn default() -> Self {
+    Self{type_: Default::default(), data: Default::default(), position: Default::default(), size: Default::default()}
+  }
 }
 
 struct JsNfsWritableFileStreamWrite {
@@ -1194,9 +1207,10 @@ struct JsNfsWritableStreamSink {
 #[napi]
 impl JsNfsWritableStreamSink {
 
-  #[napi(ts_return_type="Promise<void>")]
-  pub fn start(&'static mut self, #[napi(ts_arg_type="WritableStreamDefaultController")] _controller: Option<Unknown>) -> AsyncTask<JsNfsWritableStreamStart> {
-    AsyncTask::new(JsNfsWritableStreamStart(self))
+  #[napi(ts_args_type="controller?: WritableStreamDefaultController")]
+  pub async fn start(&'static mut self) -> napi::Result<()> {
+    self.stream.locked = true;
+    Ok(())
   }
 
   #[napi]
@@ -1209,12 +1223,13 @@ impl JsNfsWritableStreamSink {
     self.closed = true;
   }
 
-  #[napi(ts_return_type="Promise<void>")]
-  pub fn close(&'static mut self, #[napi(ts_arg_type="WritableStreamDefaultController")] _controller: Option<Unknown>) -> napi::Result<AsyncTask<JsNfsWritableStreamClose>> {
+  #[napi(ts_args_type="controller?: WritableStreamDefaultController")]
+  pub async fn close(&'static mut self) -> napi::Result<()> {
     if self.closed {
       return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".to_string()));
     }
-    Ok(AsyncTask::new(JsNfsWritableStreamClose(self)))
+    self.close_stream();
+    Ok(())
   }
 
   #[napi(ts_return_type="Promise<void>")]
@@ -1222,55 +1237,16 @@ impl JsNfsWritableStreamSink {
     if self.closed {
       return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".to_string()));
     }
-    let parsed = self.stream.parse_write_input(chunk);
-    let input = parsed.unwrap_or(JsNfsWritableFileStreamWriteOptions{type_: "".to_string(), data: None, position: None, size: None});
-    if input.type_ != WRITE_TYPE_WRITE.to_string() {
+    let options = self.stream.parse_write_input(chunk).unwrap_or_default();
+    if options.type_ != WRITE_TYPE_WRITE {
       return Err(Error::new(Status::InvalidArg, "Invalid chunk".to_string()));
     }
-    Ok(AsyncTask::new(JsNfsWritableStreamWrite{stream: self, chunk: input.data.unwrap_or_default()}))
-  }
-}
-
-struct JsNfsWritableStreamStart(&'static mut JsNfsWritableStreamSink);
-
-#[napi]
-impl napi::Task for JsNfsWritableStreamStart {
-
-  type Output = ();
-
-  type JsValue = ();
-
-  fn compute(&mut self) -> Result<Self::Output> {
-    self.0.stream.locked = true;
-    Ok(())
-  }
-
-  fn resolve(&mut self, _env: Env, _output: Self::Output) -> Result<Self::JsValue> {
-    Ok(())
-  }
-}
-
-struct JsNfsWritableStreamClose(&'static mut JsNfsWritableStreamSink);
-
-#[napi]
-impl napi::Task for JsNfsWritableStreamClose {
-
-  type Output = ();
-
-  type JsValue = ();
-
-  fn compute(&mut self) -> Result<Self::Output> {
-    self.0.close_stream();
-    Ok(())
-  }
-
-  fn resolve(&mut self, _env: Env, _output: Self::Output) -> Result<Self::JsValue> {
-    Ok(())
+    Ok(AsyncTask::new(JsNfsWritableStreamWrite{sink: self, chunk: options.data.unwrap_or_default()}))
   }
 }
 
 struct JsNfsWritableStreamWrite {
-  stream: &'static mut JsNfsWritableStreamSink,
+  sink: &'static mut JsNfsWritableStreamSink,
   chunk: Vec<u8>
 }
 
@@ -1282,7 +1258,7 @@ impl napi::Task for JsNfsWritableStreamWrite {
   type JsValue = ();
 
   fn compute(&mut self) -> Result<Self::Output> {
-    self.stream.stream.nfs_write(self.chunk.as_slice())
+    self.sink.stream.nfs_write(self.chunk.as_slice())
   }
 
   fn resolve(&mut self, _env: Env, _output: Self::Output) -> Result<Self::JsValue> {
@@ -1290,42 +1266,35 @@ impl napi::Task for JsNfsWritableStreamWrite {
   }
 }
 
-fn is_string_object(obj: &Object) -> bool {
-  if obj.has_named_property(FIELD_SUBSTRING).unwrap() {
-    let substring = obj.get_named_property::<Unknown>(FIELD_SUBSTRING).unwrap();
-    return substring.get_type().unwrap() == ValueType::Function;
-  }
-  false
+fn format_dir_path(parent_path: &String, name: &String) -> String {
+  format!("{}{}/", parent_path, name)
 }
 
-fn is_blob(obj: &Object) -> bool {
-  if obj.has_named_property(FIELD_TYPE).unwrap() {
-    let type_ = obj.get_named_property::<Unknown>(FIELD_TYPE).unwrap();
-    return type_.get_type().unwrap() == ValueType::String;
-  }
-  false
+fn format_file_path(parent_path: &String, name: &String) -> String {
+  format!("{}{}", parent_path, name)
 }
 
-fn is_typed_array(obj: &Object) -> bool {
-  if obj.has_named_property(FIELD_LENGTH).unwrap() {
-    let length = obj.get_named_property::<Unknown>(FIELD_LENGTH).unwrap();
-    return length.get_type().unwrap() == ValueType::Number;
-  }
-  false
+fn is_string_object(obj: &Object) -> napi::Result<bool> {
+  Ok(obj.has_named_property(FIELD_SUBSTRING)?
+    && obj.get_named_property::<Unknown>(FIELD_SUBSTRING)?.get_type()? == ValueType::Function)
 }
 
-fn is_data_view(obj: &Object) -> bool {
-  if obj.has_named_property(FIELD_BUFFER).unwrap() {
-    let buffer = obj.get_named_property::<Unknown>(FIELD_BUFFER).unwrap();
-    return buffer.get_type().unwrap() == ValueType::Object;
-  }
-  false
+fn is_blob(obj: &Object) -> napi::Result<bool> {
+  Ok(obj.has_named_property(FIELD_TYPE)?
+    && obj.get_named_property::<Unknown>(FIELD_TYPE)?.get_type()? == ValueType::String)
 }
 
-fn is_array_buffer(obj: &Object) -> bool {
-  if obj.has_named_property(FIELD_BYTE_LENGTH).unwrap() {
-    let byte_length = obj.get_named_property::<Unknown>(FIELD_BYTE_LENGTH).unwrap();
-    return byte_length.get_type().unwrap() == ValueType::Number;
-  }
-  false
+fn is_typed_array(obj: &Object) -> napi::Result<bool> {
+  Ok(obj.has_named_property(FIELD_LENGTH)?
+    && obj.get_named_property::<Unknown>(FIELD_LENGTH)?.get_type()? == ValueType::Number)
+}
+
+fn is_data_view(obj: &Object) -> napi::Result<bool> {
+  Ok(obj.has_named_property(FIELD_BUFFER)?
+    && obj.get_named_property::<Unknown>(FIELD_BUFFER)?.get_type()? == ValueType::Object)
+}
+
+fn is_array_buffer(obj: &Object) -> napi::Result<bool> {
+  Ok(obj.has_named_property(FIELD_BYTE_LENGTH)?
+    && obj.get_named_property::<Unknown>(FIELD_BYTE_LENGTH)?.get_type()? == ValueType::Number)
 }
