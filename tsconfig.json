@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "ES2018",
     "strict": true,
+    "strictPropertyInitialization": false,
     "moduleResolution": "node",
     "module": "CommonJS",
     "noUnusedLocals": true,
