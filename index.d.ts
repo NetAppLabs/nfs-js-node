@@ -82,6 +82,7 @@ export class JsNfsWritableFileStream {
   truncate(size: number): Promise<void>
   close(): Promise<void>
   abort(reason: string): Promise<string>
+  releaseLock(): void
   getWriter(): WritableStreamDefaultWriter
 }
 export class JsNfsWritableStreamSink {

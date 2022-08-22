@@ -8,7 +8,7 @@ import {
   JsNfsDirectoryHandle,
   JsNfsFileHandle,
   JsNfsWritableFileStream,
-} from "./index.d";
+} from "./index";
 
 type NfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor;
 type NfsGetDirectoryOptions = JsNfsGetDirectoryOptions;
@@ -18,6 +18,10 @@ type NfsCreateWritableOptions = JsNfsCreateWritableOptions;
 
 // type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
 type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array; // FIXME: BigInt64Array and BigUint64Array need ES2020
+
+export function getRootHandle(nfsURL: string): NfsDirectoryHandle {
+  return new NfsDirectoryHandle(nfsURL);
+}
 
 export class NfsHandle {
   private _jsh: JsNfsHandle
@@ -43,8 +47,9 @@ export class NfsDirectoryHandle extends NfsHandle {
   [Symbol.asyncIterator]: NfsDirectoryHandle['entries']
   private _js: JsNfsDirectoryHandle
   constructor(url?: string, toWrap?: JsNfsDirectoryHandle) {
-    const _js = toWrap || new JsNfsDirectoryHandle(url || '');
+    let _js = toWrap || new JsNfsDirectoryHandle(url || '');
     super(_js.toHandle());
+    this[Symbol.asyncIterator] = this.entries;
     this._js = _js;
   }
   async *entries(): AsyncIterableIterator<[string, NfsDirectoryHandle | NfsFileHandle]> {
@@ -102,13 +107,6 @@ export class NfsFileHandle extends NfsHandle {
   }
 }
 
-export class NfsWriteOptions {
-  type: 'write' | 'seek' | 'truncate'
-  data?: ArrayBuffer | TypedArray | DataView | Blob | String | string
-  position?: number
-  size?: number
-};
-
 interface NfsWritableFileStreamLock { locked: boolean }
 export class NfsWritableFileStream implements NfsWritableFileStreamLock {
   private _js: JsNfsWritableFileStream
@@ -117,17 +115,24 @@ export class NfsWritableFileStream implements NfsWritableFileStreamLock {
     this._js = _js;
     this.locked = _js.locked;
   }
-  async write(data: ArrayBuffer | TypedArray | DataView | Blob | String | string | NfsWriteOptions): Promise<void> {
+  async write(data: ArrayBuffer | TypedArray | DataView | Blob | String | string | {type: 'write' | 'seek' | 'truncate', data?: ArrayBuffer | TypedArray | DataView | Blob | String | string, position?: number, size?: number}): Promise<void> {
     return new Promise(async (resolve, reject) => {
       if (data instanceof Blob) {
         data = await data.arrayBuffer();
-      } else if (data instanceof NfsWriteOptions && data.type === "write" && data.data instanceof Blob) {
-        data.data = await data.data.arrayBuffer();
+      } else {
+        let dat = data as any;
+        if (dat.type === "write" && dat.data instanceof Blob) {
+          dat.data = await dat.data.arrayBuffer();
+        }
       }
 
-      await this._js.write(data)
-        .then(() => resolve())
-        .catch((reason) => reject(reason));
+      try {
+        await this._js.write(data)
+          .then(() => resolve())
+          .catch((reason) => reject(reason));
+      } catch(reason) {
+        reject(reason);
+      }
     });
   }
   async seek(position: number): Promise<void> {
@@ -143,8 +148,18 @@ export class NfsWritableFileStream implements NfsWritableFileStreamLock {
     return this._js.abort(reason);
   }
   getWriter(): WritableStreamDefaultWriter {
-    const writer = this._js.getWriter();
+    let writer = this._js.getWriter();
     (<NfsWritableFileStreamLock>this).locked = true;
+    (<WritableStreamDefaultWriterEx>writer)._releaseLock = writer.releaseLock;
+    writer.releaseLock = () => {
+      (<WritableStreamDefaultWriterEx>writer)._releaseLock();
+      this._js.releaseLock();
+      (<NfsWritableFileStreamLock>this).locked = false;
+    };
     return writer;
   }
+}
+
+interface WritableStreamDefaultWriterEx extends WritableStreamDefaultWriter {
+  _releaseLock: () => void
 }
