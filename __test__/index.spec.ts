@@ -11,7 +11,10 @@ const nfsURL = "nfs://127.0.0.1/Users/Shared/nfs/";
 test.serial('should be same entry as self for directory', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
   const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const dirHandle2 = await rootHandle.getDirectoryHandle("first");
   t.true(dirHandle.isSameEntry(dirHandle));
+  t.true(dirHandle.isSameEntry(dirHandle2));
+  t.true(dirHandle2.isSameEntry(dirHandle));
 })
 
 test.serial('should not be same entry as others for directory', async (t) => {
@@ -27,7 +30,10 @@ test.serial('should not be same entry as others for directory', async (t) => {
 test.serial('should be same entry as self for file', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("annar");
+  const fileHandle2 = await rootHandle.getFileHandle("annar");
   t.true(fileHandle.isSameEntry(fileHandle));
+  t.true(fileHandle.isSameEntry(fileHandle2));
+  t.true(fileHandle2.isSameEntry(fileHandle));
 })
 
 test.serial('should not be same entry as others for file', async (t) => {
@@ -148,6 +154,51 @@ test.serial('should iterate through directory', async (t) => {
   t.is(i, expectedEntries.length);
 })
 
+test.serial('should iterate through subdirectory', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const expectedEntries = [
+    {key: "comment", value: {kind: "file", name: "comment"}},
+    {key: "..", value: {kind: "directory", name: ".."}},
+    {key: ".", value: {kind: "directory", name: "."}},
+  ];
+  let i = 0;
+  for await (const [ key, value ] of dirHandle) {
+    if (i > expectedEntries.length) {
+      t.fail("iterated past expected number of entries");
+      break;
+    }
+    t.is(key, expectedEntries[i].key);
+    t.is(value.kind.toString(), expectedEntries[i].value.kind);
+    t.is(value.name, expectedEntries[i].value.name);
+    i++
+  }
+  t.is(i, expectedEntries.length);
+})
+
+test.serial('should iterate through subsubdirectory', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const subdirHandle = await dirHandle.getDirectoryHandle("place", {create: true});
+  const expectedEntries = [
+    {key: "..", value: {kind: "directory", name: ".."}},
+    {key: ".", value: {kind: "directory", name: "."}},
+  ];
+  let i = 0;
+  for await (const [ key, value ] of subdirHandle) {
+    if (i > expectedEntries.length) {
+      t.fail("iterated past expected number of entries");
+      break;
+    }
+    t.is(key, expectedEntries[i].key);
+    t.is(value.kind.toString(), expectedEntries[i].value.kind);
+    t.is(value.name, expectedEntries[i].value.name);
+    i++
+  }
+  t.is(i, expectedEntries.length);
+  await dirHandle.removeEntry("place");
+})
+
 test.serial('should iterate through entries', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
   const expectedEntries = [
@@ -160,6 +211,28 @@ test.serial('should iterate through entries', async (t) => {
   ];
   let i = 0;
   for await (const [ key, value ] of rootHandle.entries()) {
+    if (i > expectedEntries.length) {
+      t.fail("iterated past expected number of entries");
+      break;
+    }
+    t.is(key, expectedEntries[i].key);
+    t.is(value.kind.toString(), expectedEntries[i].value.kind);
+    t.is(value.name, expectedEntries[i].value.name);
+    i++
+  }
+  t.is(i, expectedEntries.length);
+})
+
+test.serial('should iterate through subdirectory entries', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("quatre");
+  const expectedEntries = [
+    {key: "points", value: {kind: "file", name: "points"}},
+    {key: "..", value: {kind: "directory", name: ".."}},
+    {key: ".", value: {kind: "directory", name: "."}},
+  ];
+  let i = 0;
+  for await (const [ key, value ] of dirHandle.entries()) {
     if (i > expectedEntries.length) {
       t.fail("iterated past expected number of entries");
       break;
@@ -186,6 +259,21 @@ test.serial('should iterate through keys', async (t) => {
   t.is(i, expectedKeys.length);
 })
 
+test.serial('should iterate through subdirectory keys', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("quatre")
+  const expectedKeys = ["points", "..", "."];
+  let i = 0;
+  for await (const key of dirHandle.keys()) {
+    if (i > expectedKeys.length) {
+      t.fail("iterated past expected number of keys");
+      break;
+    }
+    t.is(key, expectedKeys[i++]);
+  }
+  t.is(i, expectedKeys.length);
+})
+
 test.serial('should iterate through values', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
   const expectedValues = [
@@ -198,6 +286,27 @@ test.serial('should iterate through values', async (t) => {
   ];
   let i = 0;
   for await (const { kind, name } of rootHandle.values()) {
+    if (i > expectedValues.length) {
+      t.fail("iterated past expected number of values");
+      break;
+    }
+    t.is(kind.toString(), expectedValues[i].kind);
+    t.is(name, expectedValues[i].name);
+    i++
+  }
+  t.is(i, expectedValues.length);
+})
+
+test.serial('should iterate through subdirectory values', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const expectedValues = [
+    {kind: "file", name: "comment"},
+    {kind: "directory", name: ".."},
+    {kind: "directory", name: "."},
+  ];
+  let i = 0;
+  for await (const { kind, name } of dirHandle.values()) {
     if (i > expectedValues.length) {
       t.fail("iterated past expected number of values");
       break;
@@ -308,19 +417,19 @@ test.serial('should succeed when removing recursively empty directory', async (t
 
 test.serial('should return null when resolving unknown directory', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
-  const resolved = await rootHandle.resolve({kind: "directory", name: "unknown"});
+  const resolved = await rootHandle.resolve({kind: "directory", name: "unknown"} as any);
   t.deepEqual(resolved, null);
 })
 
 test.serial('should return null when resolving unknown file', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
-  const resolved = await rootHandle.resolve({kind: "file", name: "unknown"});
+  const resolved = await rootHandle.resolve({kind: "file", name: "unknown"} as any);
   t.deepEqual(resolved, null);
 })
 
 test.serial('should return non-null when resolving known directory', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
-  const resolved = await rootHandle.resolve({kind: "directory", name: "first"});
+  const resolved = await rootHandle.resolve({kind: "directory", name: "first"} as any);
   t.deepEqual(resolved, ["first"]);
 })
 
@@ -334,11 +443,11 @@ test.serial('should return non-null when resolving known directory using handle'
 test.serial('should return non-null when resolving known file', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
   for (const name of ["annar", "3"]) {
-    const resolved = await rootHandle.resolve({kind: "file", name});
+    const resolved = await rootHandle.resolve({kind: "file", name} as any);
     t.deepEqual(resolved, [name]);
   }
   for (const {dir, name} of [{dir: "first", name: "comment"}, {dir: "quatre", name: "points"}]) {
-    const resolved = await rootHandle.resolve({kind: "file", name});
+    const resolved = await rootHandle.resolve({kind: "file", name} as any);
     t.deepEqual(resolved, [dir, name]);
   }
 })
@@ -356,6 +465,23 @@ test.serial('should return non-null when resolving known file using handle', asy
     const resolved = await rootHandle.resolve(fileHandle);
     t.deepEqual(resolved, [dir, name]);
   }
+})
+
+test.serial('should return null when resolving file belonging to different directory using handle', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const dirHandle = await rootHandle.getDirectoryHandle("first");
+  const dirHandle2 = await rootHandle.getDirectoryHandle("quatre");
+  const fileHandle = await dirHandle.getFileHandle("points", {create: true});
+  const fileHandle2 = await dirHandle2.getFileHandle("points");
+  const resolved = await dirHandle2.resolve(fileHandle);
+  t.deepEqual(resolved, null);
+  const resolved2 = await dirHandle2.resolve(fileHandle2);
+  t.deepEqual(resolved2, ["quatre", "points"]);
+  const resolved3 = await dirHandle.resolve(fileHandle2);
+  t.deepEqual(resolved3, null);
+  const resolved4 = await dirHandle2.resolve({kind: fileHandle.kind, name: fileHandle.name} as any);
+  t.deepEqual(resolved4, ["quatre", "points"]);
+  await dirHandle.removeEntry("points");
 })
 
 test.serial('should return file for file handle', async (t) => {
@@ -393,7 +519,7 @@ test.serial('should return array buffer for file', async (t) => {
   const file = await fileHandle.getFile();
   const buf = await file.arrayBuffer();
   t.is(buf.byteLength, 123);
-  t.is(String.fromCharCode.apply(null, new Uint8Array(buf)), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
+  t.is(String.fromCharCode.apply(null, new Uint8Array(buf) as any), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
 test.serial('should return array buffer for blob', async (t) => {
@@ -403,7 +529,7 @@ test.serial('should return array buffer for blob', async (t) => {
   const blob = file.slice();
   const buf = await blob.arrayBuffer();
   t.is(buf.byteLength, 123);
-  t.is(String.fromCharCode.apply(null, new Uint8Array(buf)), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
+  t.is(String.fromCharCode.apply(null, new Uint8Array(buf) as any), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
 })
 
 test.serial('should return stream for file', async (t) => {
@@ -415,7 +541,7 @@ test.serial('should return stream for file', async (t) => {
   const x = await reader.read();
   t.false(x.done);
   t.is(x.value?.length, 123);
-  t.is(String.fromCharCode.apply(null, x.value?.valueOf()), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
+  t.is(String.fromCharCode.apply(null, x.value?.valueOf() as any), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
   const y = await reader.read();
   t.true(y.done);
 })
@@ -430,7 +556,7 @@ test.serial('should return stream for blob', async (t) => {
   const x = await reader.read();
   t.false(x.done);
   t.is(x.value?.length, 123);
-  t.is(String.fromCharCode.apply(null, x.value?.valueOf()), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
+  t.is(String.fromCharCode.apply(null, x.value?.valueOf() as any), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.");
   const y = await reader.read();
   t.true(y.done);
 })
@@ -504,7 +630,7 @@ test.serial('should return error when writing unsupported type', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-type", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write(69));
+  const err = await t.throwsAsync(writable.write(69 as any));
   t.is(err?.message, "Writing unsupported type");
   await rootHandle.removeEntry(fileHandle.name);
 })
@@ -574,7 +700,7 @@ test.serial('should return error when writing unsupported object type', async (t
   const rootHandle = getRootHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-type", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write({}));
+  const err = await t.throwsAsync(writable.write({} as any));
   t.is(err?.message, "Writing unsupported type");
   await rootHandle.removeEntry(fileHandle.name);
 })
@@ -583,7 +709,7 @@ test.serial('should return error when writing unsupported object data type objec
   const rootHandle = getRootHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-data-type-object", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write({type: "write", data: {}}));
+  const err = await t.throwsAsync(writable.write({type: "write", data: {} as any}));
   t.is(err?.message, "Writing unsupported data type");
   await rootHandle.removeEntry(fileHandle.name);
 })
@@ -592,7 +718,7 @@ test.serial('should return error when writing unsupported object data type', asy
   const rootHandle = getRootHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-unsupported-object-data-type", {create: true});
   const writable = await fileHandle.createWritable();
-  const err = await t.throwsAsync(writable.write({type: "write", data: 7}));
+  const err = await t.throwsAsync(writable.write({type: "write", data: 7 as any}));
   t.is(err?.message, "Writing unsupported data type");
   await rootHandle.removeEntry(fileHandle.name);
 })

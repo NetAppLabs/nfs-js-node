@@ -16,8 +16,7 @@ type NfsGetFileOptions = JsNfsGetFileOptions;
 type NfsRemoveOptions = JsNfsRemoveOptions;
 type NfsCreateWritableOptions = JsNfsCreateWritableOptions;
 
-// type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
-type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array; // FIXME: BigInt64Array and BigUint64Array need ES2020
+type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
 
 export function getRootHandle(nfsURL: string): NfsDirectoryHandle {
   return new NfsDirectoryHandle(nfsURL);
@@ -85,7 +84,7 @@ export class NfsDirectoryHandle extends NfsHandle {
     return this._js.removeEntry(name, options);
   }
   async resolve(possibleDescendant: NfsHandle): Promise<Array<string> | null> {
-    return this._js.resolve(possibleDescendant);
+    return this._js.resolve((possibleDescendant as any)._jsh || possibleDescendant);
   }
 }
 

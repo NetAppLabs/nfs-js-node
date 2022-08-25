@@ -1,19 +1,34 @@
-import { JsNfsCreateWritableOptions, JsNfsDirectoryHandle, JsNfsFileHandle, JsNfsGetFileOptions, JsNfsWritableFileStream } from './index'
+import { JsNfsCreateWritableOptions, JsNfsDirectoryHandle, JsNfsFileHandle, JsNfsGetDirectoryOptions, JsNfsGetFileOptions, JsNfsWritableFileStream } from './index'
 
 type NfsDirectoryHandle = JsNfsDirectoryHandle;
 
 export function getRootHandle(nfsURL: string): NfsDirectoryHandle {
   let rootHandle = new JsNfsDirectoryHandle(nfsURL);
-  let rootHandleEx = rootHandle as any;
-  rootHandleEx[Symbol.asyncIterator] = async function *(): AsyncIterableIterator<[string, JsNfsDirectoryHandle | JsNfsFileHandle]> {
-    for await (const [key, value] of rootHandleEx.entries()) {
+  return wrapDirectoryHandle(rootHandle);
+}
+
+function wrapDirectoryHandle(dirHandle: JsNfsDirectoryHandle): JsNfsDirectoryHandle {
+  let dirHandleEx = dirHandle as any;
+  dirHandleEx[Symbol.asyncIterator] = async function *(): AsyncIterableIterator<[string, JsNfsDirectoryHandle | JsNfsFileHandle]> {
+    for await (const [key, value] of dirHandleEx.entries()) {
       yield [key, value];
     }
   }
-  rootHandleEx._getFileHandle = rootHandleEx.getFileHandle;
-  rootHandleEx.getFileHandle = async (name: string, options?: JsNfsGetFileOptions): Promise<JsNfsFileHandle> => {
+  dirHandleEx._getDirectoryHandle = dirHandleEx.getDirectoryHandle;
+  dirHandleEx.getDirectoryHandle = async (name: string, options?: JsNfsGetDirectoryOptions): Promise<JsNfsDirectoryHandle> => {
     return new Promise(async (resolve, reject) => {
-      await rootHandleEx._getFileHandle(name, options)
+      await dirHandleEx._getDirectoryHandle(name, options)
+        .then((subdirHandle: JsNfsDirectoryHandle) => {
+          let subdirHandleEx = wrapDirectoryHandle(subdirHandle);
+          resolve(subdirHandleEx);
+        })
+        .catch((reason: any) => reject(reason))
+    });
+  }
+  dirHandleEx._getFileHandle = dirHandleEx.getFileHandle;
+  dirHandleEx.getFileHandle = async (name: string, options?: JsNfsGetFileOptions): Promise<JsNfsFileHandle> => {
+    return new Promise(async (resolve, reject) => {
+      await dirHandleEx._getFileHandle(name, options)
         .then((fileHandle: JsNfsFileHandle) => {
           let fileHandleEx = fileHandle as any;
           fileHandleEx._createWritable = fileHandleEx.createWritable;
@@ -61,5 +76,5 @@ export function getRootHandle(nfsURL: string): NfsDirectoryHandle {
         .catch((reason: any) => reject(reason))
     });
   };
-  return rootHandle;
+  return dirHandleEx;
 }

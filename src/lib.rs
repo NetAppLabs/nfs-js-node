@@ -462,21 +462,17 @@ impl JsNfsDirectoryHandle {
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/annar".to_string(), kind: KIND_FILE.to_string(), name: "annar".to_string()});
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/".to_string(), kind: KIND_DIRECTORY.to_string(), name: "quatre".to_string()});
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/".to_string(), kind: KIND_DIRECTORY.to_string(), name: "first".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/../".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_PARENT.to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/./".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_CURRENT.to_string()});
         },
         "first" => {
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/comment".to_string(), kind: KIND_FILE.to_string(), name: "comment".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/../".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_PARENT.to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/./".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_CURRENT.to_string()});
         },
         "quatre" => {
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/points".to_string(), kind: KIND_FILE.to_string(), name: "points".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/../".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_PARENT.to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/./".to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_CURRENT.to_string()});
         },
         _ => ()
       };
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: format_dir_path(&self.handle.path, &"..".to_string()), kind: KIND_DIRECTORY.to_string(), name: DIR_PARENT.to_string()});
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: format_dir_path(&self.handle.path, &".".to_string()), kind: KIND_DIRECTORY.to_string(), name: DIR_CURRENT.to_string()});
     }
     Ok(entries)
   }
