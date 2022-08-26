@@ -167,7 +167,7 @@ impl Generator for JsNfsDirectoryHandleEntries {
       return None;
     }
     let entry = &self.entries[self.count];
-    let mut res: Vec<Unknown> = Vec::new();
+    let mut res = Vec::new();
     res.push(self.env.create_string(entry.name.as_str()).ok()?.into_unknown());
     match entry.kind.as_str() {
       KIND_DIRECTORY => unsafe { res.push(Unknown::from_napi_value(self.env.raw(), JsNfsDirectoryHandle::from(entry.to_owned()).into_instance(*self.env).ok()?.raw()).ok()?) },
@@ -226,7 +226,7 @@ impl Generator for JsNfsDirectoryHandleValues {
       return None;
     }
     let entry = &self.entries[self.count];
-    let res: Either<JsNfsDirectoryHandle, JsNfsFileHandle> = match entry.kind.as_str() {
+    let res = match entry.kind.as_str() {
       KIND_DIRECTORY => Either::A(JsNfsDirectoryHandle::from(entry.to_owned())),
       _ => Either::B(JsNfsFileHandle::from(entry.to_owned()))
     };
@@ -328,7 +328,7 @@ impl JsNfsHandle {
   }
 
   pub fn open(url: String) -> Self {
-    Self{nfs: Self::get_nfs(url), path: DIR_ROOT.to_string(), kind: KIND_DIRECTORY.to_string(), name: DIR_ROOT.to_string()}
+    Self{nfs: Self::get_nfs(url), path: DIR_ROOT.into(), kind: KIND_DIRECTORY.into(), name: DIR_ROOT.into()}
   }
 
   fn is_same(&self, other: &JsNfsHandle) -> bool {
@@ -348,13 +348,13 @@ impl JsNfsHandle {
       let nfs_stat = my_nfs.stat64(Path::new(self.path.as_str()))?;
       let perm_u64 = perm.to_u64(self.kind.as_str());
       if nfs_stat.nfs_mode & perm_u64 == perm_u64 {
-        return Ok(PERM_STATE_GRANTED.to_string());
+        return Ok(PERM_STATE_GRANTED.into());
       }
     }
     if self.nfs.is_none() && ((self.name != "3" && self.name != "quatre") || perm.mode != PERM_READWRITE) {
-      return Ok(PERM_STATE_GRANTED.to_string());
+      return Ok(PERM_STATE_GRANTED.into());
     }
-    Ok(PERM_STATE_DENIED.to_string())
+    Ok(PERM_STATE_DENIED.into())
   }
 
   #[napi]
@@ -364,11 +364,11 @@ impl JsNfsHandle {
       let nfs_stat = my_nfs.stat64(Path::new(self.path.as_str()))?;
       let perm_u64 = perm.to_u64(self.kind.as_str());
       if nfs_stat.nfs_mode & perm_u64 == perm_u64 {
-        return Ok(PERM_STATE_GRANTED.to_string());
+        return Ok(PERM_STATE_GRANTED.into());
       }
       let mode = perm.to_mode(self.kind.as_str()).union(Mode::from_bits_truncate(nfs_stat.nfs_mode as u16));
       if !my_nfs.lchmod(Path::new(self.name.as_str()), mode).is_ok() {
-        return Ok(PERM_STATE_DENIED.to_string());
+        return Ok(PERM_STATE_DENIED.into());
       }
     }
     let res = self.query_permission(perm).await?;
@@ -379,19 +379,20 @@ impl JsNfsHandle {
 impl FromNapiValue for JsNfsHandle {
 
   unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-    let it = Self::from_napi_ref(env, napi_val);
-    if it.is_ok() {
-      return Ok(it.unwrap().to_owned());
-    }
-    let err = it.err().unwrap();
-    if err.status != Status::InvalidArg || err.reason != "Failed to recover `JsNfsHandle` type from napi value" {
-      return Err(err);
-    }
-    let obj = Object::from_napi_value(env, napi_val)?;
-    let kind = obj.get::<&str, &str>(FIELD_KIND)?.unwrap_or_default().to_string();
-    let name = obj.get::<&str, &str>(FIELD_NAME)?.unwrap_or_default().to_string();
-    let path = obj.get::<&str, &str>(FIELD_PATH)?.unwrap_or_default().to_string();
-    Ok(Self{nfs: None, path, kind, name})
+    Self::from_napi_ref(env, napi_val)
+      .map_or_else(
+      |err| {
+        if err.status != Status::InvalidArg || err.reason != "Failed to recover `JsNfsHandle` type from napi value" {
+          return Err(err);
+        }
+        let obj = Object::from_napi_value(env, napi_val)?;
+        let kind = obj.get::<&str, &str>(FIELD_KIND)?.unwrap_or_default().into();
+        let name = obj.get::<&str, &str>(FIELD_NAME)?.unwrap_or_default().into();
+        let path = obj.get::<&str, &str>(FIELD_PATH)?.unwrap_or_default().into();
+        Ok(Self{nfs: None, path, kind, name})
+      },
+      |handle| Ok(handle.to_owned())
+    )
   }
 }
 
@@ -437,20 +438,16 @@ impl JsNfsDirectoryHandle {
   }
 
   fn nfs_entries(&self) -> Result<Vec<JsNfsHandle>> {
-    let mut entries: Vec<JsNfsHandle> = Vec::new();
+    let mut entries = Vec::new();
     if let Some(nfs) = &self.handle.nfs {
       let mut my_nfs = nfs.to_owned();
       let dir = my_nfs.opendir(Path::new(self.handle.path.as_str()))?;
       for entry in dir {
         if let Some(e) = entry.ok() {
-          let kind = match e.d_type {
-            libnfs::EntryType::Directory => KIND_DIRECTORY.to_string(),
-            _ => KIND_FILE.to_string()
-          };
           let name = e.path.into_os_string().into_string().unwrap();
-          let path = match kind.as_str() {
-            KIND_DIRECTORY => format_dir_path(&self.handle.path, &name),
-            _ => format_file_path(&self.handle.path, &name)
+          let (kind, path) = match e.d_type {
+            libnfs::EntryType::Directory => (KIND_DIRECTORY.into(), format_dir_path(&self.handle.path, &name)),
+            _ => (KIND_FILE.into(), format_file_path(&self.handle.path, &name))
           };
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind, name});
         }
@@ -458,48 +455,45 @@ impl JsNfsDirectoryHandle {
     } else {
       match self.name.as_str() {
         DIR_ROOT => {
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/3".to_string(), kind: KIND_FILE.to_string(), name: "3".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/annar".to_string(), kind: KIND_FILE.to_string(), name: "annar".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/".to_string(), kind: KIND_DIRECTORY.to_string(), name: "quatre".to_string()});
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/".to_string(), kind: KIND_DIRECTORY.to_string(), name: "first".to_string()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/3".into(), kind: KIND_FILE.into(), name: "3".into()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/annar".into(), kind: KIND_FILE.into(), name: "annar".into()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/".into(), kind: KIND_DIRECTORY.into(), name: "quatre".into()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/".into(), kind: KIND_DIRECTORY.into(), name: "first".into()});
         },
         "first" => {
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/comment".to_string(), kind: KIND_FILE.to_string(), name: "comment".to_string()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/first/comment".into(), kind: KIND_FILE.into(), name: "comment".into()});
         },
         "quatre" => {
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/points".to_string(), kind: KIND_FILE.to_string(), name: "points".to_string()});
+          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: "/quatre/points".into(), kind: KIND_FILE.into(), name: "points".into()});
         },
         _ => ()
       };
-      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: format_dir_path(&self.handle.path, &"..".to_string()), kind: KIND_DIRECTORY.to_string(), name: DIR_PARENT.to_string()});
-      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: format_dir_path(&self.handle.path, &".".to_string()), kind: KIND_DIRECTORY.to_string(), name: DIR_CURRENT.to_string()});
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: format_dir_path(&self.handle.path, &"..".into()), kind: KIND_DIRECTORY.into(), name: DIR_PARENT.into()});
+      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: format_dir_path(&self.handle.path, &".".into()), kind: KIND_DIRECTORY.into(), name: DIR_CURRENT.into()});
     }
     Ok(entries)
   }
 
   #[napi(iterator, ts_return_type="AsyncIterableIterator<[string, JsNfsDirectoryHandle | JsNfsFileHandle]>")]
   pub fn entries(&self, env: Env) -> Result<JsNfsDirectoryHandleEntries> {
-    let res = JsNfsDirectoryHandleEntries{entries: self.nfs_entries()?, env: SendWrapper::new(env), count: 0, _sym: false};
-    Ok(res)
+    Ok(JsNfsDirectoryHandleEntries{entries: self.nfs_entries()?, env: SendWrapper::new(env), count: 0, _sym: false})
   }
 
   #[napi(iterator, ts_return_type="AsyncIterableIterator<string>")]
   pub fn keys(&self) -> Result<JsNfsDirectoryHandleKeys> {
-    let res = JsNfsDirectoryHandleKeys{entries: self.nfs_entries()?, count: 0, _sym: false};
-    Ok(res)
+    Ok(JsNfsDirectoryHandleKeys{entries: self.nfs_entries()?, count: 0, _sym: false})
   }
 
   #[napi(iterator, ts_return_type="AsyncIterableIterator<JsNfsDirectoryHandle | JsNfsFileHandle>")]
   pub fn values(&self) -> Result<JsNfsDirectoryHandleValues> {
-    let res = JsNfsDirectoryHandleValues{entries: self.nfs_entries()?, count: 0, _sym: false};
-    Ok(res)
+    Ok(JsNfsDirectoryHandleValues{entries: self.nfs_entries()?, count: 0, _sym: false})
   }
 
   #[napi]
   pub async fn get_directory_handle(&self, name: String, #[napi(ts_arg_type="JsNfsGetDirectoryOptions")] options: Option<JsNfsGetDirectoryOptions>) -> Result<JsNfsDirectoryHandle> {
     for entry in self.nfs_entries()? {
       if entry.kind == KIND_DIRECTORY && entry.name == name {
-        return Ok(entry.into())
+        return Ok(entry.into());
       }
     }
     if !options.unwrap_or_default().create {
@@ -510,15 +504,14 @@ impl JsNfsDirectoryHandle {
       let my_nfs = nfs.to_owned();
       let _ = my_nfs.mkdir(Path::new(path.trim_end_matches('/')))?;
     }
-    let res = JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_DIRECTORY.to_string(), name};
-    Ok(res.into())
+    Ok(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_DIRECTORY.into(), name}.into())
   }
 
   #[napi]
   pub async fn get_file_handle(&self, name: String, #[napi(ts_arg_type="JsNfsGetFileOptions")] options: Option<JsNfsGetFileOptions>) -> Result<JsNfsFileHandle> {
     for entry in self.nfs_entries()? {
       if entry.kind == KIND_FILE && entry.name == name {
-        return Ok(entry.into())
+        return Ok(entry.into());
       }
     }
     if !options.unwrap_or_default().create {
@@ -529,12 +522,12 @@ impl JsNfsDirectoryHandle {
       let mut my_nfs = nfs.to_owned();
       let _ = my_nfs.create(Path::new(path.as_str()), nix::fcntl::OFlag::O_SYNC, Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IWGRP | Mode::S_IROTH | Mode::S_IWOTH)?;
     }
-    let res = JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_FILE.to_string(), name};
-    Ok(res.into())
+    Ok(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_FILE.into(), name}.into())
   }
 
   fn nfs_remove(&self, entry: &JsNfsHandle, recursive: bool) -> Result<()> {
     if let Some(nfs) = &self.handle.nfs {
+      let my_nfs = nfs.to_owned();
       let subentries = match entry.kind.as_str() {
         KIND_DIRECTORY => JsNfsDirectoryHandle::from(entry.to_owned()).nfs_entries()?,
         _ => Vec::new(),
@@ -550,9 +543,9 @@ impl JsNfsDirectoryHandle {
           }
         }
 
-        nfs.rmdir(Path::new(entry.path.trim_end_matches('/')))?;
+        my_nfs.rmdir(Path::new(entry.path.trim_end_matches('/')))?;
       } else {
-        nfs.unlink(Path::new(entry.path.as_str()))?;
+        my_nfs.unlink(Path::new(entry.path.as_str()))?;
       }
     } else {
       if entry.name == "first" && !recursive {
@@ -560,7 +553,7 @@ impl JsNfsDirectoryHandle {
       }
     }
 
-    return Ok(())
+    Ok(())
   }
 
   #[napi]
@@ -620,11 +613,11 @@ impl Task for JsNfsDirectoryHandleResolve {
   type JsValue = Either<Vec<String>, Null>;
 
   fn compute(&mut self) -> Result<Self::Output> {
-    let res = self.handle.nfs_resolve(self.handle.nfs_entries()?, &self.possible_descendant);
-    if res.is_ok() {
-      return Ok(Either::A(res.unwrap()));
-    }
-    Ok(Either::B(Null))
+    self.handle.nfs_resolve(self.handle.nfs_entries()?, &self.possible_descendant)
+      .map_or_else(
+        |_| Ok(Either::B(Null)),
+        |resolved| Ok(Either::A(resolved))
+      )
   }
 
   fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
@@ -672,7 +665,7 @@ impl JsNfsFileHandle {
       let my_nfs = nfs.to_owned();
       let path = Path::new(self.handle.path.as_str());
       let nfs_stat = my_nfs.stat64(path)?;
-      let type_ = mime_guess::from_path(path).first_raw().unwrap_or(MIME_TYPE_UNKNOWN).to_string();
+      let type_ = mime_guess::from_path(path).first_raw().unwrap_or(MIME_TYPE_UNKNOWN).into();
       let res = JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as i64, type_, last_modified: (nfs_stat.nfs_mtime * 1000) as i64, name: self.name.clone()};
       return Ok(res);
     }
@@ -682,10 +675,7 @@ impl JsNfsFileHandle {
 
   #[napi]
   pub async fn create_writable(&self, #[napi(ts_arg_type="JsNfsCreateWritableOptions")] options: Option<JsNfsCreateWritableOptions>) -> Result<JsNfsWritableFileStream> {
-    let position = match options.unwrap_or_default().keep_existing_data {
-      false => Some(0),
-      _ => None
-    };
+    let position = (!options.unwrap_or_default().keep_existing_data).then(|| 0);
     let res = JsNfsWritableFileStream{handle: self.handle.clone(), position, locked: false};
     Ok(res)
   }
@@ -716,9 +706,9 @@ impl JsNfsFile {
 
   pub fn with_initial_name(name: String) -> Self {
     let size = JsNfsFile::mock_bytes(name.as_str()).len() as i64;
-    let type_ = mime_guess::from_path(Path::new(name.as_str())).first_raw().unwrap_or(MIME_TYPE_UNKNOWN).to_string();
+    let type_ = mime_guess::from_path(Path::new(name.as_str())).first_raw().unwrap_or(MIME_TYPE_UNKNOWN).into();
     Self{
-      handle: JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.to_string(), name: name.clone()},
+      handle: JsNfsHandle{nfs: None, path: name.clone(), kind: KIND_FILE.into(), name: name.clone()},
       size,
       type_,
       last_modified: 1658159058723,
@@ -770,7 +760,7 @@ impl JsNfsFile {
   pub fn stream(&self, env: Env) -> Result<Object> {
     let global = env.get_global()?;
     let constructor = global.get_named_property::<JsFunction>(JS_TYPE_READABLE_STREAM)?;
-    let arg = JsNfsReadableStreamSource{content: self.nfs_bytes()?, count: 0, type_: READABLE_STREAM_SOURCE_TYPE_BYTES.to_string()}.into_instance(env)?;
+    let arg = JsNfsReadableStreamSource{content: self.nfs_bytes()?, count: 0, type_: READABLE_STREAM_SOURCE_TYPE_BYTES.into()}.into_instance(env)?;
     let stream = constructor.new_instance(&[arg])?;
     Ok(stream)
   }
@@ -817,7 +807,7 @@ impl JsNfsFile {
 
   #[napi]
   pub async fn text(&self) -> Result<String> {
-    let res = std::str::from_utf8(&self.nfs_bytes()?).unwrap().to_string();
+    let res = std::str::from_utf8(&self.nfs_bytes()?).unwrap().into();
     Ok(res)
   }
 }
@@ -853,21 +843,22 @@ struct JsNfsReadableStreamSource {
 impl JsNfsReadableStreamSource {
 
   #[napi]
-  pub fn pull(&mut self, env: Env, #[napi(ts_arg_type="ReadableByteStreamController")] controller: Unknown) {
-    let controller = controller.coerce_to_object().unwrap();
+  pub fn pull(&mut self, env: Env, #[napi(ts_arg_type="ReadableByteStreamController")] controller: Unknown) -> Result<()> {
+    let controller = controller.coerce_to_object()?;
     if self.count < self.content.len() {
-      let enqueue = controller.get_named_property::<JsFunction>(FIELD_ENQUEUE).unwrap();
-      // let arg = env.create_uint32(self.content[self.count] as u32).unwrap();
-      // let _ = enqueue.call(Some(&controller), &[arg]).unwrap();
+      let enqueue = controller.get_named_property::<JsFunction>(FIELD_ENQUEUE)?;
+      // let arg = env.create_uint32(self.content[self.count] as u32)?;
+      // let _ = enqueue.call(Some(&controller), &[arg])?;
       // self.count += 1;
-      let arg = env.create_arraybuffer_with_data(self.content.clone()).unwrap();
-      let arg = arg.into_raw().into_typedarray(TypedArrayType::Uint8, self.content.len(), 0).unwrap();
+      let arg = env.create_arraybuffer_with_data(self.content.clone())?;
+      let arg = arg.into_raw().into_typedarray(TypedArrayType::Uint8, self.content.len(), 0)?;
       let _ = enqueue.call(Some(&controller), &[arg]);
       self.count = self.content.len();
     } else {
-      let close = controller.get_named_property::<JsFunction>(FIELD_CLOSE).unwrap();
-      let _ = close.call_without_args(Some(&controller)).unwrap();
+      let close = controller.get_named_property::<JsFunction>(FIELD_CLOSE)?;
+      let _ = close.call_without_args(Some(&controller))?;
     }
+    Ok(())
   }
 }
 
@@ -886,7 +877,7 @@ impl JsNfsWritableFileStream {
     match input.get_type()? {
       ValueType::String => self.parse_string(input.coerce_to_string()?, None),
       ValueType::Object => self.parse_write_input_object(input.coerce_to_object()?),
-      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()))
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported type".into()))
     }
   }
 
@@ -908,7 +899,7 @@ impl JsNfsWritableFileStream {
       _ if is_typed_array(&obj)? => self.parse_typed_array(obj, None),
       _ if is_data_view(&obj)? => self.parse_data_view(obj, None),
       _ if is_array_buffer(&obj)? => self.parse_array_buffer(obj, None),
-      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()))
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported type".into()))
     }
   }
 
@@ -917,7 +908,7 @@ impl JsNfsWritableFileStream {
       let position = obj.get_named_property::<Unknown>(FIELD_POSITION)?;
       if position.get_type()? == ValueType::Number {
         return Ok(JsNfsWritableFileStreamWriteOptions{
-          type_: WRITE_TYPE_SEEK.to_string(),
+          type_: WRITE_TYPE_SEEK.into(),
           data: None,
           position: Some(position.coerce_to_number()?.get_int64()?),
           size: None,
@@ -932,7 +923,7 @@ impl JsNfsWritableFileStream {
       let size = obj.get_named_property::<Unknown>(FIELD_SIZE)?;
       if size.get_type()? == ValueType::Number {
         return Ok(JsNfsWritableFileStreamWriteOptions{
-          type_: WRITE_TYPE_TRUNCATE.to_string(),
+          type_: WRITE_TYPE_TRUNCATE.into(),
           data: None,
           position: None,
           size: Some(size.coerce_to_number()?.get_int64()?),
@@ -943,7 +934,7 @@ impl JsNfsWritableFileStream {
   }
 
   fn parse_write_options(&self, obj: Object) -> Result<JsNfsWritableFileStreamWriteOptions> {
-    let mut pos: Option<i64> = None;
+    let mut pos = None;
     if obj.has_named_property(FIELD_POSITION)? {
       let position = obj.get_named_property::<Unknown>(FIELD_POSITION)?;
       if position.get_type()? == ValueType::Number {
@@ -960,7 +951,7 @@ impl JsNfsWritableFileStream {
     match data.get_type()? {
       ValueType::String => self.parse_string(data.coerce_to_string()?, position),
       ValueType::Object => self.parse_wrapped_data_object(data.coerce_to_object()?, position),
-      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported data type".to_string())),
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported data type".into())),
     }
   }
 
@@ -971,7 +962,7 @@ impl JsNfsWritableFileStream {
       _ if is_typed_array(&data)? => self.parse_typed_array(data, position),
       _ if is_data_view(&data)? => self.parse_data_view(data, position),
       _ if is_array_buffer(&data)? => self.parse_array_buffer(data, position),
-      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported data type".to_string()))
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported data type".into()))
     }
   }
 
@@ -999,7 +990,7 @@ impl JsNfsWritableFileStream {
 
   fn parsed_write_options(&self, data: Option<Vec<u8>>, position: Option<i64>) -> Result<JsNfsWritableFileStreamWriteOptions> {
     Ok(JsNfsWritableFileStreamWriteOptions{
-      type_: WRITE_TYPE_WRITE.to_string(),
+      type_: WRITE_TYPE_WRITE.into(),
       data,
       position,
       size: None
@@ -1030,11 +1021,8 @@ impl JsNfsWritableFileStream {
       let mut my_nfs = nfs.to_owned();
       let nfs_file = my_nfs.open(Path::new(self.handle.path.as_str()), nix::fcntl::OFlag::O_SYNC)?;
       let offset = match self.position {
-        None => {
-          let nfs_stat = nfs_file.fstat64()?;
-          nfs_stat.nfs_size
-        },
-        _ => self.position.unwrap() as u64
+        None => nfs_file.fstat64()?.nfs_size,
+        Some(pos) => pos as u64
       };
       let _ = nfs_file.pwrite(bytes, offset)?;
       self.position = Some((offset as i64) + (bytes.len() as i64));
@@ -1060,11 +1048,11 @@ impl JsNfsWritableFileStream {
       let my_nfs = nfs.to_owned();
       let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
       if position > nfs_stat.nfs_size as i64 {
-        return Err(Error::new(Status::GenericFailure, "Seeking past size".to_string()));
+        return Err(Error::new(Status::GenericFailure, "Seeking past size".into()));
       }
     } else {
       if position > 123 {
-        return Err(Error::new(Status::GenericFailure, "Seeking past size".to_string()));
+        return Err(Error::new(Status::GenericFailure, "Seeking past size".into()));
       }
     }
     self.position = Some(position);
@@ -1120,7 +1108,7 @@ impl JsNfsWritableFileStream {
   #[napi(ts_return_type="WritableStreamDefaultWriter")]
   pub fn get_writer(&'static mut self, env: Env) -> Result<Object> {
     if self.locked {
-      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is locked".to_string()));
+      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is locked".into()));
     }
     let global = env.get_global()?;
     let sink = JsNfsWritableStreamSink{stream: self, closed: false}.into_instance(env)?;
@@ -1200,7 +1188,7 @@ impl JsNfsWritableStreamSink {
   #[napi(ts_args_type="controller?: WritableStreamDefaultController")]
   pub async fn close(&'static mut self) -> Result<()> {
     if self.closed {
-      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".to_string()));
+      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".into()));
     }
     self.close_stream();
     Ok(())
@@ -1209,11 +1197,11 @@ impl JsNfsWritableStreamSink {
   #[napi(ts_return_type="Promise<void>")]
   pub fn write(&'static mut self, #[napi(ts_arg_type="any")] chunk: Unknown, #[napi(ts_arg_type="WritableStreamDefaultController")] _controller: Option<Unknown>) -> Result<AsyncTask<JsNfsWritableStreamWrite>> {
     if self.closed {
-      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".to_string()));
+      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".into()));
     }
     let options = self.stream.parse_write_input(chunk).unwrap_or_default();
     if options.type_ != WRITE_TYPE_WRITE {
-      return Err(Error::new(Status::InvalidArg, "Invalid chunk".to_string()));
+      return Err(Error::new(Status::InvalidArg, "Invalid chunk".into()));
     }
     Ok(AsyncTask::new(JsNfsWritableStreamWrite{sink: self, chunk: options.data.unwrap_or_default()}))
   }
