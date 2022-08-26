@@ -14,7 +14,7 @@
     "node-addon-api"
   ],
   "files": [
-    "indox.ts",
+    "indax.ts",
     "index.d.ts",
     "index.js"
   ],

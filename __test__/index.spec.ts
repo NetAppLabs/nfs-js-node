@@ -1,6 +1,6 @@
 import test from 'ava'
 
-import { getRootHandle } from '../indox'
+import { getRootHandle } from '../indax'
 
 const nfsURL = "nfs://127.0.0.1/Users/Shared/nfs/";
 
