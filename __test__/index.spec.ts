@@ -1,10 +1,14 @@
 import test from 'ava'
 
-//*
-import { getRootHandle } from '../indax'
-/*/
-import { getRootHandle } from '../indox'
-//*/
+import { getRootHandle as getRootHandleAx } from '../dropped-indax'
+import { getRootHandle as getRootHandleOx, NfsDirectoryHandle } from '../indox'
+
+function getRootHandle(nfsURL: string): NfsDirectoryHandle {
+  if (process.env.TEST_USING_INDAX) {
+    return getRootHandleAx(nfsURL);
+  }
+  return getRootHandleOx(nfsURL);
+}
 
 const nfsURL = "nfs://127.0.0.1/Users/Shared/nfs/";
 
