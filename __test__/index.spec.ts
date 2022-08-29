@@ -637,6 +637,10 @@ test('should succeed when writing blob', async (t) => {
   const writable = await fileHandle.createWritable();
   const blob = new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"});
   await t.notThrowsAsync(writable.write(blob));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 22);
+  const text = await file.text();
+  t.is(text, '{\n  "hello": "world"\n}');
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -725,6 +729,10 @@ test('should succeed when writing blob via struct', async (t) => {
   const writable = await fileHandle.createWritable();
   const blob = new Blob([JSON.stringify({hello: "world"}, null, 2)], {type: "application/json"});
   await t.notThrowsAsync(writable.write({type: "write", data: blob}));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 22);
+  const text = await file.text();
+  t.is(text, '{\n  "hello": "world"\n}');
   await rootHandle.removeEntry(fileHandle.name);
 })
 
