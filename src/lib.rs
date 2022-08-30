@@ -1231,17 +1231,7 @@ impl Task for JsNfsWritableStreamWrite {
 }
 
 fn get_parent_path_and_name(path: &String) -> (String, String) {
-  let mut parent_path = String::new();
-  let mut name = String::new();
-  for iter in path.split('/') {
-    if !name.is_empty() {
-      parent_path += "/";
-      parent_path += name.as_str();
-    }
-    name = iter.into();
-  }
-  parent_path += "/";
-  (parent_path, name)
+  path.rsplit_once('/').map(|res| (res.0.to_string() + "/", res.1.to_string())).unwrap()
 }
 
 fn format_dir_path(parent_path: &String, name: &String) -> String {
