@@ -995,6 +995,20 @@ test.serial('should succeed when truncating size', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
+test.serial('should succeed when truncating beyond current size', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-truncate", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.truncate(15));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 15);
+  const buf = await file.arrayBuffer();
+  t.is(buf.byteLength, 15);
+  t.is(String.fromCharCode.apply(null, new Uint8Array(buf) as any), "hello rust\0\0\0\0\0");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
 test.serial('should succeed when truncating size via write', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-truncate-via-write", {create: true});
@@ -1005,6 +1019,20 @@ test.serial('should succeed when truncating size via write', async (t) => {
   t.is(file.size, 5);
   const text = await file.text();
   t.is(text, "hello");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test.serial('should succeed when truncating beyond current size via write', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-truncate-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.write({type: "truncate", size: 15}));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 15);
+  const buf = await file.arrayBuffer();
+  t.is(buf.byteLength, 15);
+  t.is(String.fromCharCode.apply(null, new Uint8Array(buf) as any), "hello rust\0\0\0\0\0");
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -1022,6 +1050,21 @@ test.serial('should succeed when writing string after truncating size', async (t
   await rootHandle.removeEntry(fileHandle.name);
 })
 
+test.serial('should succeed when writing string after truncating beyond current size', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-truncate", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.truncate(11));
+  await writable.write("tsur olleh");
+  const file = await fileHandle.getFile();
+  t.is(file.size, 21);
+  const buf = await file.arrayBuffer();
+  t.is(buf.byteLength, 21);
+  t.is(String.fromCharCode.apply(null, new Uint8Array(buf) as any), "hello rust\0tsur olleh");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
 test.serial('should succeed when writing string after truncating size via write', async (t) => {
   const rootHandle = getRootHandle(nfsURL);
   const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-truncate-via-write", {create: true});
@@ -1033,6 +1076,21 @@ test.serial('should succeed when writing string after truncating size via write'
   t.is(file.size, 22);
   const text = await file.text();
   t.is(text, "hellbound troublemaker");
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test.serial('should succeed when writing string after truncating beyond current size via write', async (t) => {
+  const rootHandle = getRootHandle(nfsURL);
+  const fileHandle = await rootHandle.getFileHandle("writable-write-string-after-truncate-via-write", {create: true});
+  const writable = await fileHandle.createWritable();
+  await writable.write("hello rust");
+  await t.notThrowsAsync(writable.write({type: "truncate", size: 13}));
+  await writable.write("tsur olleh");
+  const file = await fileHandle.getFile();
+  t.is(file.size, 23);
+  const buf = await file.arrayBuffer();
+  t.is(buf.byteLength, 23);
+  t.is(String.fromCharCode.apply(null, new Uint8Array(buf) as any), "hello rust\0\0\0tsur olleh");
   await rootHandle.removeEntry(fileHandle.name);
 })
 

@@ -1071,16 +1071,21 @@ impl JsNfsWritableFileStream {
   }
 
   fn nfs_truncate(&mut self, size: i64) -> Result<Undefined> {
-    if let Some(nfs) = &self.handle.nfs {
+    let size_before = if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
-      my_nfs.truncate(Path::new(self.handle.path.as_str()), size as u64)?;
+      let path = Path::new(self.handle.path.as_str());
+      let nfs_stat = my_nfs.stat64(path)?;
+      my_nfs.truncate(path, size as u64)?;
+      nfs_stat.nfs_size as i64
     } else {
       let mut mocks = get_mocks().write().unwrap();
       let contents = mocks.files.entry(self.handle.path.clone()).or_default();
-      contents.truncate(size as usize);
-    }
+      let size_before = contents.len() as i64;
+      contents.resize(size as usize, 0);
+      size_before
+    };
     if let Some(position) = self.position {
-      if position > size {
+      if position > size || position == size_before {
         self.position = Some(size);
       }
     }
