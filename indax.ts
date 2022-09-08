@@ -18,10 +18,6 @@ type NfsCreateWritableOptions = JsNfsCreateWritableOptions;
 
 type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
 
-export function getRootHandle(nfsURL: string): NfsDirectoryHandle {
-  return new NfsDirectoryHandle(nfsURL);
-}
-
 export class NfsHandle {
   private _jsh: JsNfsHandle
   readonly kind: 'directory' | 'file'
@@ -45,15 +41,18 @@ export class NfsHandle {
 export class NfsDirectoryHandle extends NfsHandle {
   [Symbol.asyncIterator]: NfsDirectoryHandle['entries']
   private _js: JsNfsDirectoryHandle
-  constructor(url?: string, toWrap?: JsNfsDirectoryHandle) {
-    let _js = toWrap || new JsNfsDirectoryHandle(url || '');
+  constructor(url: string);
+  constructor(toWrap: JsNfsDirectoryHandle);
+  constructor(param: string | JsNfsDirectoryHandle) {
+    const [url, toWrap] = typeof param === 'string' ? [param] : ['', param];
+    let _js = toWrap || new JsNfsDirectoryHandle(url);
     super(_js.toHandle());
     this[Symbol.asyncIterator] = this.entries;
     this._js = _js;
   }
   async *entries(): AsyncIterableIterator<[string, NfsDirectoryHandle | NfsFileHandle]> {
     for await (const [key, value] of this._js.entries()) {
-      yield [key, value instanceof JsNfsDirectoryHandle ? new NfsDirectoryHandle(undefined, value) : new NfsFileHandle(value)];
+      yield [key, value instanceof JsNfsDirectoryHandle ? new NfsDirectoryHandle(value) : new NfsFileHandle(value)];
     }
   }
   async *keys(): AsyncIterableIterator<string> {
@@ -63,13 +62,13 @@ export class NfsDirectoryHandle extends NfsHandle {
   }
   async *values(): AsyncIterableIterator<NfsDirectoryHandle | NfsFileHandle> {
     for await (const value of this._js.values()) {
-      yield value instanceof JsNfsDirectoryHandle ? new NfsDirectoryHandle(undefined, value) : new NfsFileHandle(value);
+      yield value instanceof JsNfsDirectoryHandle ? new NfsDirectoryHandle(value) : new NfsFileHandle(value);
     }
   }
   async getDirectoryHandle(name: string, options?: NfsGetDirectoryOptions): Promise<NfsDirectoryHandle> {
     return new Promise(async (resolve, reject) => {
       await this._js.getDirectoryHandle(name, options)
-        .then((handle) => resolve(new NfsDirectoryHandle(undefined, handle)))
+        .then((handle) => resolve(new NfsDirectoryHandle(handle)))
         .catch((reason) => reject(reason));
     });
   }

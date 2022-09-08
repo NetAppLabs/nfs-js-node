@@ -15,22 +15,22 @@ and https://web.dev/file-system-access/
 
 
 // Example use:
-const nfs_url = "nfs://1.2.3.4/export?vers=3";
+const nfs_url = 'nfs://1.2.3.4/export?vers=3';
 const rootHandle = new NFSDirectoryHandle(nfs_url);
 
 for await (const [name, entry] of rootHandle) {
-  console.log("FileName: ", name, "Entry: ", entry);
+  console.log('FileName: ', name, 'Entry: ', entry);
 }
 
-const fileHandle = await rootHandle.getFileHandle("testfile.txt", { create: true });
+const fileHandle = await rootHandle.getFileHandle('testfile.txt', { create: true });
 const wfs = await fileHandle.createWritable({ keepExistingData: false });
-await wfs.write("Hello from Javascript");
+await wfs.write('Hello from Javascript');
 await wfs.close();
 
 // Interface definition
 
-type FileSystemHandlePermissionMode = "read" | "readwrite";
-type FileSystemHandleKind = "directory" | "file";
+type FileSystemHandlePermissionMode = 'read' | 'readwrite';
+type FileSystemHandleKind = 'directory' | 'file';
 
 interface FileSystemHandlePermissionDescriptor {
     mode: FileSystemHandlePermissionMode;
@@ -73,7 +73,7 @@ interface FileSystemCreateWritableOptions {
 }
 
 interface FileSystemFileHandle extends FileSystemHandle {
-    readonly kind: "file";
+    readonly kind: 'file';
     getFile(): Promise<File>;
     createWritable(options?: FileSystemCreateWritableOptions): Promise<FileSystemWritableFileStream>;
 }
