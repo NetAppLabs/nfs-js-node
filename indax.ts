@@ -8,7 +8,7 @@ import {
   JsNfsDirectoryHandle,
   JsNfsFileHandle,
   JsNfsWritableFileStream,
-} from "./index";
+} from './index';
 
 type NfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor;
 type NfsGetDirectoryOptions = JsNfsGetDirectoryOptions;
@@ -120,7 +120,7 @@ export class NfsWritableFileStream implements NfsWritableFileStreamLock {
         data = await data.arrayBuffer();
       } else {
         let dat = data as any;
-        if (dat.type === "write" && dat.data instanceof Blob) {
+        if (dat.type === 'write' && dat.data instanceof Blob) {
           dat.data = await dat.data.arrayBuffer();
         }
       }
