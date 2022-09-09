@@ -45,7 +45,7 @@ export class NfsDirectoryHandle extends NfsHandle {
   constructor(toWrap: JsNfsDirectoryHandle);
   constructor(param: string | JsNfsDirectoryHandle) {
     const [url, toWrap] = typeof param === 'string' ? [param] : ['', param];
-    let _js = toWrap || new JsNfsDirectoryHandle(url);
+    const _js = toWrap || new JsNfsDirectoryHandle(url);
     super(_js.toHandle());
     this[Symbol.asyncIterator] = this.entries;
     this._js = _js;
@@ -118,7 +118,7 @@ export class NfsWritableFileStream implements NfsWritableFileStreamLock {
       if (data instanceof Blob) {
         data = await data.arrayBuffer();
       } else {
-        let dat = data as any;
+        const dat = data as any;
         if (dat.type === 'write' && dat.data instanceof Blob) {
           dat.data = await dat.data.arrayBuffer();
         }
@@ -146,7 +146,7 @@ export class NfsWritableFileStream implements NfsWritableFileStreamLock {
     return this._js.abort(reason);
   }
   getWriter(): WritableStreamDefaultWriter {
-    let writer = this._js.getWriter();
+    const writer = this._js.getWriter();
     (<NfsWritableFileStreamLock>this).locked = true;
     (<WritableStreamDefaultWriterEx>writer)._releaseLock = writer.releaseLock;
     writer.releaseLock = () => {
