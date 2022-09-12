@@ -81,14 +81,24 @@ export class NfsDirectoryHandle extends NfsHandle implements FileSystemDirectory
     return new Promise(async (resolve, reject) => {
       await this._js.getDirectoryHandle(name, options as JsNfsGetDirectoryOptions)
         .then((handle) => resolve(new NfsDirectoryHandle(handle) as FileSystemDirectoryHandle))
-        .catch((reason) => reject(reason));
+        .catch((reason) => {
+          if (reason.message == 'The path supplied exists, but was not an entry of requested type.') {
+            reason.name = 'TypeMismatchError';
+          }
+          reject(reason);
+        });
     });
   }
   async getFileHandle(name: string, options?: FileSystemGetFileOptions): Promise<FileSystemFileHandle> {
     return new Promise(async (resolve, reject) => {
       await this._js.getFileHandle(name, options as JsNfsGetFileOptions)
         .then((handle) => resolve(new NfsFileHandle(handle) as FileSystemFileHandle))
-        .catch((reason) => reject(reason));
+        .catch((reason) => {
+          if (reason.message == 'The path supplied exists, but was not an entry of requested type.') {
+            reason.name = 'TypeMismatchError';
+          }
+          reject(reason);
+        });
     });
   }
   async removeEntry(name: string, options?: FileSystemRemoveOptions): Promise<void> {

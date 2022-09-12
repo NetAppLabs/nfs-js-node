@@ -508,7 +508,10 @@ impl JsNfsDirectoryHandle {
   #[napi]
   pub async fn get_directory_handle(&mut self, name: String, #[napi(ts_arg_type="JsNfsGetDirectoryOptions")] options: Option<JsNfsGetDirectoryOptions>) -> Result<JsNfsDirectoryHandle> {
     for entry in self.nfs_entries()? {
-      if entry.kind == KIND_DIRECTORY && entry.name == name {
+      if entry.name == name {
+        if entry.kind != KIND_DIRECTORY {
+          return Err(Error::new(Status::GenericFailure, "The path supplied exists, but was not an entry of requested type.".into()));
+        }
         return Ok(entry.into());
       }
     }
@@ -530,7 +533,10 @@ impl JsNfsDirectoryHandle {
   #[napi]
   pub async fn get_file_handle(&mut self, name: String, #[napi(ts_arg_type="JsNfsGetFileOptions")] options: Option<JsNfsGetFileOptions>) -> Result<JsNfsFileHandle> {
     for entry in self.nfs_entries()? {
-      if entry.kind == KIND_FILE && entry.name == name {
+      if entry.name == name {
+        if entry.kind != KIND_FILE {
+          return Err(Error::new(Status::GenericFailure, "The path supplied exists, but was not an entry of requested type.".into()));
+        }
         return Ok(entry.into());
       }
     }
