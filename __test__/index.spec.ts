@@ -876,23 +876,21 @@ test.serial('should succeed when writing string multiple times via struct', asyn
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when seeking past size of file', async (t) => {
+test.serial('should succeed when seeking past size of file', async (t) => {
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-seek-past-size', {create: true}) as NfsFileHandle;
   const writable = await fileHandle.createWritable();
   await writable.write('hello rust');
-  const err = await t.throwsAsync(writable.seek(600));
-  t.is(err?.message, 'Seeking past size');
+  await t.notThrowsAsync(writable.seek(600));
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when seeking past size of file via write', async (t) => {
+test.serial('should succeed when seeking past size of file via write', async (t) => {
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-seek-past-size-via-write', {create: true}) as NfsFileHandle;
   const writable = await fileHandle.createWritable();
   await writable.write('hello rust');
-  const err = await t.throwsAsync(writable.write({type: 'seek', position: 600}));
-  t.is(err?.message, 'Seeking past size');
+  await t.notThrowsAsync(writable.write({type: 'seek', position: 600}));
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -942,21 +940,16 @@ test.serial('should succeed when writing string after seek via write', async (t)
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test.serial('should return error when seeking past size of file and writing string via write', async (t) => {
+test.serial('should succeed when seeking past size of file and writing string via write', async (t) => {
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-seek-past-size-and-write-string-via-write', {create: true}) as NfsFileHandle;
   const writable = await fileHandle.createWritable();
   await writable.write('hello rust');
-  // seek before seek-and-write to verify below that position doesn't change after failed seek-and-write
-  await t.notThrowsAsync(writable.write({type: 'seek', position: 6}));
-  const err = await t.throwsAsync(writable.write({type: 'write', position: 600, data: 'there'}));
-  t.is(err?.message, 'Seeking past size');
-  await writable.write('the');
-  await writable.write({type: 'write', data: 're'});
+  await t.notThrowsAsync(writable.write({type: 'write', position: 13, data: 'tsur olleh'}));
   const file = await fileHandle.getFile();
-  t.is(file.size, 11);
+  t.is(file.size, 23);
   const text = await file.text();
-  t.is(text, 'hello there');
+  t.is(text, 'hello rust\0\0\0tsur olleh');
   await rootHandle.removeEntry(fileHandle.name);
 })
 

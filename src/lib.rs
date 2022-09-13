@@ -1022,7 +1022,7 @@ impl JsNfsWritableFileStream {
       if contents.len() >= offset + bytes.len() {
         contents.splice(offset..(offset + bytes.len()), bytes.iter().cloned());
       } else {
-        contents.truncate(offset);
+        contents.resize(offset, 0);
         contents.append(&mut bytes.to_vec());
       }
       (offset as i64) + (bytes.len() as i64)
@@ -1045,19 +1045,6 @@ impl JsNfsWritableFileStream {
   }
 
   fn nfs_seek(&mut self, position: i64) -> Result<Undefined> {
-    if let Some(nfs) = &self.handle.nfs {
-      let my_nfs = nfs.to_owned();
-      let nfs_stat = my_nfs.stat64(Path::new(self.handle.path.as_str()))?;
-      if position > nfs_stat.nfs_size as i64 {
-        return Err(Error::new(Status::GenericFailure, "Seeking past size".into()));
-      }
-    } else {
-      let mut mocks = get_mocks().write().unwrap();
-      let contents = mocks.files.entry(self.handle.path.clone()).or_default();
-      if position > contents.len() as i64 {
-        return Err(Error::new(Status::GenericFailure, "Seeking past size".into()));
-      }
-    }
     self.position = Some(position);
     Ok(())
   }
