@@ -961,13 +961,28 @@ impl JsNfsWritableFileStream {
   }
 
   fn parse_typed_array(&self, typed_array: Object, position: Option<i64>) -> Result<JsNfsWritableFileStreamWriteOptions> {
-    // FIXME: what about length, byte_offset, and typedarray_type?
-    self.parsed_write_options(Some(JsTypedArray::try_from(typed_array.into_unknown())?.into_value()?.arraybuffer.into_value()?.to_owned()), position)
+    let bytes_per_type = |t: TypedArrayType| -> usize {
+      match t {
+        TypedArrayType::BigInt64 | TypedArrayType::BigUint64 | TypedArrayType::Float64 => 8,
+        TypedArrayType::Int32 | TypedArrayType::Uint32 | TypedArrayType::Float32 => 4,
+        TypedArrayType::Int16 | TypedArrayType::Uint16 => 2,
+        _ => 1
+      }
+    };
+
+    let typed_array_value = JsTypedArray::try_from(typed_array.into_unknown())?.into_value()?;
+    let bytes = typed_array_value.arraybuffer.into_value()?.to_owned();
+    let start = typed_array_value.byte_offset; // FIXME: should start be multiplied by bytes_per_type?
+    let end = start + (typed_array_value.length * bytes_per_type(typed_array_value.typedarray_type));
+    self.parsed_write_options(Some(bytes[start..end].to_vec()), position)
   }
 
   fn parse_data_view(&self, data_view: Object, position: Option<i64>) -> Result<JsNfsWritableFileStreamWriteOptions> {
-    // FIXME: what about length and byte_offset?
-    self.parsed_write_options(Some(JsDataView::try_from(data_view.into_unknown())?.into_value()?.arraybuffer.into_value()?.to_owned()), position)
+    let data_view_value = JsDataView::try_from(data_view.into_unknown())?.into_value()?;
+    let bytes = data_view_value.arraybuffer.into_value()?.to_owned();
+    let start = data_view_value.byte_offset as usize;
+    let end = start + (data_view_value.length as usize);
+    self.parsed_write_options(Some(bytes[start..end].to_vec()), position)
   }
 
   fn parse_array_buffer(&self, array_buffer: Object, position: Option<i64>) -> Result<JsNfsWritableFileStreamWriteOptions> {
