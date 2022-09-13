@@ -155,8 +155,6 @@ test.serial('should iterate through directory', async (t) => {
     {key: 'annar', value: {kind: 'file', name: 'annar'}},
     {key: 'quatre', value: {kind: 'directory', name: 'quatre'}},
     {key: 'first', value: {kind: 'directory', name: 'first'}},
-    {key: '..', value: {kind: 'directory', name: '..'}},
-    {key: '.', value: {kind: 'directory', name: '.'}},
   ];
   let i = 0;
   for await (const [ key, value ] of rootHandle) {
@@ -177,8 +175,6 @@ test.serial('should iterate through subdirectory', async (t) => {
   const dirHandle = await rootHandle.getDirectoryHandle('first') as NfsDirectoryHandle;
   const expectedEntries = [
     {key: 'comment', value: {kind: 'file', name: 'comment'}},
-    {key: '..', value: {kind: 'directory', name: '..'}},
-    {key: '.', value: {kind: 'directory', name: '.'}},
   ];
   let i = 0;
   for await (const [ key, value ] of dirHandle) {
@@ -198,19 +194,13 @@ test.serial('should iterate through subsubdirectory', async (t) => {
   const rootHandle = getRootHandle();
   const dirHandle = await rootHandle.getDirectoryHandle('first') as NfsDirectoryHandle;
   const subdirHandle = await dirHandle.getDirectoryHandle('place', {create: true}) as NfsDirectoryHandle;
-  const expectedEntries = [
-    {key: '..', value: {kind: 'directory', name: '..'}},
-    {key: '.', value: {kind: 'directory', name: '.'}},
-  ];
+  const expectedEntries = [];
   let i = 0;
-  for await (const [ key, value ] of subdirHandle) {
+  for await (const [ _key, _value ] of subdirHandle) {
     if (i > expectedEntries.length) {
       t.fail('iterated past expected number of entries');
       break;
     }
-    t.is(key, expectedEntries[i].key);
-    t.is(value.kind.toString(), expectedEntries[i].value.kind);
-    t.is(value.name, expectedEntries[i].value.name);
     i++
   }
   t.is(i, expectedEntries.length);
@@ -224,8 +214,6 @@ test.serial('should iterate through entries', async (t) => {
     {key: 'annar', value: {kind: 'file', name: 'annar'}},
     {key: 'quatre', value: {kind: 'directory', name: 'quatre'}},
     {key: 'first', value: {kind: 'directory', name: 'first'}},
-    {key: '..', value: {kind: 'directory', name: '..'}},
-    {key: '.', value: {kind: 'directory', name: '.'}},
   ];
   let i = 0;
   for await (const [ key, value ] of rootHandle.entries()) {
@@ -246,8 +234,6 @@ test.serial('should iterate through subdirectory entries', async (t) => {
   const dirHandle = await rootHandle.getDirectoryHandle('quatre') as NfsDirectoryHandle;
   const expectedEntries = [
     {key: 'points', value: {kind: 'file', name: 'points'}},
-    {key: '..', value: {kind: 'directory', name: '..'}},
-    {key: '.', value: {kind: 'directory', name: '.'}},
   ];
   let i = 0;
   for await (const [ key, value ] of dirHandle.entries()) {
@@ -265,7 +251,7 @@ test.serial('should iterate through subdirectory entries', async (t) => {
 
 test.serial('should iterate through keys', async (t) => {
   const rootHandle = getRootHandle();
-  const expectedKeys = ['3', 'annar', 'quatre', 'first', '..', '.'];
+  const expectedKeys = ['3', 'annar', 'quatre', 'first'];
   let i = 0;
   for await (const key of rootHandle.keys()) {
     if (i > expectedKeys.length) {
@@ -280,7 +266,7 @@ test.serial('should iterate through keys', async (t) => {
 test.serial('should iterate through subdirectory keys', async (t) => {
   const rootHandle = getRootHandle();
   const dirHandle = await rootHandle.getDirectoryHandle('quatre') as NfsDirectoryHandle;
-  const expectedKeys = ['points', '..', '.'];
+  const expectedKeys = ['points'];
   let i = 0;
   for await (const key of dirHandle.keys()) {
     if (i > expectedKeys.length) {
@@ -299,8 +285,6 @@ test.serial('should iterate through values', async (t) => {
     {kind: 'file', name: 'annar'},
     {kind: 'directory', name: 'quatre'},
     {kind: 'directory', name: 'first'},
-    {kind: 'directory', name: '..'},
-    {kind: 'directory', name: '.'},
   ];
   let i = 0;
   for await (const { kind, name } of rootHandle.values()) {
@@ -320,8 +304,6 @@ test.serial('should iterate through subdirectory values', async (t) => {
   const dirHandle = await rootHandle.getDirectoryHandle('first') as NfsDirectoryHandle;
   const expectedValues = [
     {kind: 'file', name: 'comment'},
-    {kind: 'directory', name: '..'},
-    {kind: 'directory', name: '.'},
   ];
   let i = 0;
   for await (const { kind, name } of dirHandle.values()) {

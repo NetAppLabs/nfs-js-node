@@ -467,7 +467,9 @@ impl JsNfsDirectoryHandle {
             libnfs::EntryType::Directory => (KIND_DIRECTORY.into(), format_dir_path(&self.handle.path, &name)),
             _ => (KIND_FILE.into(), format_file_path(&self.handle.path, &name))
           };
-          entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind, name});
+          if kind != KIND_DIRECTORY || (name != DIR_CURRENT && name != DIR_PARENT) {
+            entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind, name});
+          }
         }
       }
     } else {
@@ -484,8 +486,6 @@ impl JsNfsDirectoryHandle {
           entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: mock_dir.clone(), kind: KIND_DIRECTORY.into(), name});
         }
       }
-      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: format_dir_path(&self.handle.path, &"..".into()), kind: KIND_DIRECTORY.into(), name: DIR_PARENT.into()});
-      entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: format_dir_path(&self.handle.path, &".".into()), kind: KIND_DIRECTORY.into(), name: DIR_CURRENT.into()});
     }
     Ok(entries)
   }
@@ -562,15 +562,13 @@ impl JsNfsDirectoryHandle {
     };
     if let Some(nfs) = &self.handle.nfs {
       let my_nfs = nfs.to_owned();
-      if entry.kind == KIND_DIRECTORY && !recursive && subentries.len() > 2 {
+      if entry.kind == KIND_DIRECTORY && !recursive && subentries.len() > 0 {
         return Err(Error::new(Status::GenericFailure, format!("Directory {:?} is not empty", entry.name)));
       }
 
       if entry.kind == KIND_DIRECTORY {
         for subentry in subentries {
-          if subentry.name != DIR_CURRENT && subentry.name != DIR_PARENT {
-            self.nfs_remove(&subentry, recursive)?;
-          }
+          self.nfs_remove(&subentry, recursive)?;
         }
 
         my_nfs.rmdir(Path::new(entry.path.trim_end_matches('/')))?;
@@ -580,7 +578,7 @@ impl JsNfsDirectoryHandle {
     } else {
       let mut mocks = get_mocks().write().unwrap();
       if entry.kind == KIND_DIRECTORY {
-        if !recursive && subentries.len() > 2 {
+        if !recursive && subentries.len() > 0 {
           return Err(Error::new(Status::GenericFailure, format!("Directory {:?} is not empty", entry.name)));
         }
         mocks.dirs.remove(&entry.path);
@@ -608,7 +606,7 @@ impl JsNfsDirectoryHandle {
         return Ok(subentry.path.trim_matches('/').split('/').map(str::to_string).collect());
       }
 
-      if subentry.kind == KIND_DIRECTORY && subentry.name != DIR_CURRENT && subentry.name != DIR_PARENT {
+      if subentry.kind == KIND_DIRECTORY {
         let subdir = JsNfsDirectoryHandle::from(subentry);
         let res = subdir.nfs_resolve(subdir.nfs_entries()?, possible_descendant);
         if res.is_ok() {
