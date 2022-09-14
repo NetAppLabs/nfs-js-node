@@ -506,7 +506,7 @@ impl JsNfsDirectoryHandle {
   }
 
   #[napi]
-  pub async fn get_directory_handle(&mut self, name: String, #[napi(ts_arg_type="JsNfsGetDirectoryOptions")] options: Option<JsNfsGetDirectoryOptions>) -> Result<JsNfsDirectoryHandle> {
+  pub async fn get_directory_handle(&self, name: String, #[napi(ts_arg_type="JsNfsGetDirectoryOptions")] options: Option<JsNfsGetDirectoryOptions>) -> Result<JsNfsDirectoryHandle> {
     for entry in self.nfs_entries()? {
       if entry.name == name {
         if entry.kind != KIND_DIRECTORY {
@@ -531,7 +531,7 @@ impl JsNfsDirectoryHandle {
   }
 
   #[napi]
-  pub async fn get_file_handle(&mut self, name: String, #[napi(ts_arg_type="JsNfsGetFileOptions")] options: Option<JsNfsGetFileOptions>) -> Result<JsNfsFileHandle> {
+  pub async fn get_file_handle(&self, name: String, #[napi(ts_arg_type="JsNfsGetFileOptions")] options: Option<JsNfsGetFileOptions>) -> Result<JsNfsFileHandle> {
     for entry in self.nfs_entries()? {
       if entry.name == name {
         if entry.kind != KIND_FILE {
@@ -555,7 +555,7 @@ impl JsNfsDirectoryHandle {
     }
   }
 
-  fn nfs_remove(&mut self, entry: &JsNfsHandle, recursive: bool) -> Result<()> {
+  fn nfs_remove(&self, entry: &JsNfsHandle, recursive: bool) -> Result<()> {
     let subentries = match entry.kind.as_str() {
       KIND_DIRECTORY => JsNfsDirectoryHandle::from(entry.to_owned()).nfs_entries()?,
       _ => Vec::new(),
@@ -591,7 +591,7 @@ impl JsNfsDirectoryHandle {
   }
 
   #[napi]
-  pub async fn remove_entry(&mut self, name: String, #[napi(ts_arg_type="JsNfsRemoveOptions")] options: Option<JsNfsRemoveOptions>) -> Result<()> {
+  pub async fn remove_entry(&self, name: String, #[napi(ts_arg_type="JsNfsRemoveOptions")] options: Option<JsNfsRemoveOptions>) -> Result<()> {
     for entry in self.nfs_entries()? {
       if entry.name == name {
         return self.nfs_remove(&entry, options.unwrap_or_default().recursive);
