@@ -1147,3 +1147,51 @@ test.serial('should return error when getting writer for locked writable file st
   t.false(writable.locked);
   await rootHandle.removeEntry(fileHandle.name);
 })
+
+test.serial('should handle getting directories concurrently', async (t) => {
+  // @ts-ignore
+  const count = process.env.TEST_USING_MOCKS ? 1000 : 10;
+  const rootHandle = getRootHandle();
+  for (let i = 0; i < count; i++) {
+    const [first, quatre] = await Promise.all([
+      rootHandle.getDirectoryHandle('first'),
+      rootHandle.getDirectoryHandle('quatre'),
+    ]);
+    t.is(first.kind, 'directory');
+    t.is(first.name, 'first');
+    t.is(quatre.kind, 'directory');
+    t.is(quatre.name, 'quatre');
+  }
+})
+
+test.serial('should handle requesting permissions concurrently', async (t) => {
+  // @ts-ignore
+  const count = process.env.TEST_USING_MOCKS ? 1000 : 10;
+  const rootHandle = getRootHandle();
+  const [first, quatre] = await Promise.all([
+    rootHandle.getDirectoryHandle('first') as Promise<NfsDirectoryHandle>,
+    rootHandle.getDirectoryHandle('quatre') as Promise<NfsDirectoryHandle>,
+  ]);
+  for (let i = 0; i < count; i++) {
+    const [firstPerm, quatrePerm] = await Promise.all([
+      first.queryPermission({mode: 'readwrite'}),
+      quatre.queryPermission({mode: 'readwrite'}),
+    ]);
+    t.is(firstPerm, 'granted');
+    t.is(quatrePerm, 'denied');
+  }
+})
+
+test.serial('should handle resolving concurrently', async (t) => {
+  // @ts-ignore
+  const count = process.env.TEST_USING_MOCKS ? 1000 : 10;
+  const rootHandle = getRootHandle();
+  for (let i = 0; i < count; i++) {
+    const [first, quatre] = await Promise.all([
+      rootHandle.resolve({kind: 'directory', name: 'first'} as any),
+      rootHandle.resolve({kind: 'directory', name: 'quatre'} as any),
+    ]);
+    t.deepEqual(first, ['first']);
+    t.deepEqual(quatre, ['quatre']);
+  }
+})
