@@ -387,7 +387,7 @@ impl JsNfsHandle {
       if nfs_stat.nfs_mode & perm_u64 == perm_u64 {
         return Ok(PERM_STATE_GRANTED.into());
       }
-      let mode = perm.to_mode(self.kind.as_str()).union(Mode::from_bits_truncate(nfs_stat.nfs_mode as u16));
+      let mode = perm.to_mode(self.kind.as_str()).union(Mode::from_bits_truncate((nfs_stat.nfs_mode as u16).into()));
       if !my_nfs.lchmod(Path::new(self.name.as_str()), mode).is_ok() {
         return Ok(PERM_STATE_DENIED.into());
       }
