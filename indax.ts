@@ -11,7 +11,10 @@ import {
 } from './index';
 
 type NfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor;
-type NfsCreateWritableOptions = JsNfsCreateWritableOptions;
+// @ts-ignore
+type NfsCreateWritableOptions = FileSystemCreateWritableOptions;
+// @ts-ignore
+type FileSystemWritableFileStream = FileSystemWritableFileStream;
 
 type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
 
@@ -19,10 +22,20 @@ export class NfsHandle implements FileSystemHandle {
   private _jsh: JsNfsHandle
   readonly kind: FileSystemHandleKind
   readonly name: string
+  /**
+   * @deprecated Old property just for Chromium <=85. Use `kind` property in the new API.
+   */
+  readonly isFile: boolean
+  /**
+   * @deprecated Old property just for Chromium <=85. Use `kind` property in the new API.
+   */
+  readonly isDirectory: boolean
   constructor(_jsh: JsNfsHandle) {
     this._jsh = _jsh;
     this.kind = _jsh.kind;
     this.name = _jsh.name;
+    this.isFile = _jsh.kind == 'file';
+    this.isDirectory = _jsh.kind == 'directory';
   }
   isSameEntry(other: FileSystemHandle): Promise<boolean> {
     return new Promise(async (resolve, reject) => {
@@ -42,9 +55,15 @@ export class NfsHandle implements FileSystemHandle {
 }
 
 export class NfsDirectoryHandle extends NfsHandle implements FileSystemDirectoryHandle {
-  [Symbol.asyncIterator]: NfsDirectoryHandle['entries']
+  [Symbol.asyncIterator]: NfsDirectoryHandle['entries'] = this.entries
   readonly kind: 'directory'
+  /**
+   * @deprecated Old property just for Chromium <=85. Use `kind` property in the new API.
+   */
   readonly isFile: false
+  /**
+   * @deprecated Old property just for Chromium <=85. Use `kind` property in the new API.
+   */
   readonly isDirectory: true
   private _js: JsNfsDirectoryHandle
   constructor(url: string);
@@ -111,20 +130,26 @@ export class NfsDirectoryHandle extends NfsHandle implements FileSystemDirectory
   /**
    * @deprecated Old property just for Chromium <=85. Use `.getFileHandle()` in the new API.
    */
-  getFile: NfsDirectoryHandle['getFileHandle'];
+  getFile: NfsDirectoryHandle['getFileHandle']
   /**
   * @deprecated Old property just for Chromium <=85. Use `.getDirectoryHandle()` in the new API.
   */
-  getDirectory: NfsDirectoryHandle['getDirectoryHandle'];
+  getDirectory: NfsDirectoryHandle['getDirectoryHandle']
   /**
   * @deprecated Old property just for Chromium <=85. Use `.keys()`, `.values()`, `.entries()`, or the directory itself as an async iterable in the new API.
   */
-  getEntries: NfsDirectoryHandle['values'];
+  getEntries: NfsDirectoryHandle['values']
  }
 
 export class NfsFileHandle extends NfsHandle implements FileSystemFileHandle {
   readonly kind: 'file'
+  /**
+   * @deprecated Old property just for Chromium <=85. Use `kind` property in the new API.
+   */
   readonly isFile: true
+  /**
+   * @deprecated Old property just for Chromium <=85. Use `kind` property in the new API.
+   */
   readonly isDirectory: false
   private _js: JsNfsFileHandle
   constructor(_js: JsNfsFileHandle) {
@@ -137,10 +162,10 @@ export class NfsFileHandle extends NfsHandle implements FileSystemFileHandle {
   async getFile(): Promise<File> {
     return this._js.getFile();
   }
-  async createWritable(options?: NfsCreateWritableOptions): Promise<NfsWritableFileStream> {
+  async createWritable(options?: NfsCreateWritableOptions): Promise<FileSystemWritableFileStream> {
     return new Promise(async (resolve, reject) => {
-      await this._js.createWritable(options)
-        .then((stream) => resolve(new NfsWritableFileStream(stream)))
+      await this._js.createWritable(options as JsNfsCreateWritableOptions)
+        .then((stream) => resolve(new NfsWritableFileStream(stream) as FileSystemWritableFileStream))
         .catch((reason) => reject(reason));
     });
   }
@@ -183,8 +208,12 @@ export class NfsWritableFileStream implements NfsWritableFileStreamLock {
   async close(): Promise<void> {
     return this._js.close();
   }
-  async abort(reason: string): Promise<string> {
-    return this._js.abort(reason);
+  async abort(reason: string): Promise<void> {
+    return new Promise(async (resolve, reject) => {
+      await this._js.abort(reason)
+        .then((_reason) => resolve())
+        .catch((reason) => reject(reason));
+    });
   }
   getWriter(): WritableStreamDefaultWriter {
     const writer = this._js.getWriter();

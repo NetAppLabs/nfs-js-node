@@ -318,6 +318,46 @@ test.serial('should iterate through subdirectory values', async (t) => {
   t.is(i, expectedValues.length);
 })
 
+test.serial('should iterate through values via deprecated getEntries', async (t) => {
+  const rootHandle = getRootHandle();
+  const expectedValues = [
+    {kind: 'file', name: '3'},
+    {kind: 'file', name: 'annar'},
+    {kind: 'directory', name: 'quatre'},
+    {kind: 'directory', name: 'first'},
+  ];
+  let i = 0;
+  for await (const { kind, name } of rootHandle.getEntries()) {
+    if (i > expectedValues.length) {
+      t.fail('iterated past expected number of values');
+      break;
+    }
+    t.is(kind.toString(), expectedValues[i].kind);
+    t.is(name, expectedValues[i].name);
+    i++
+  }
+  t.is(i, expectedValues.length);
+})
+
+test.serial('should iterate through subdirectory values via deprecated getEntries', async (t) => {
+  const rootHandle = getRootHandle();
+  const dirHandle = await rootHandle.getDirectoryHandle('first') as NfsDirectoryHandle;
+  const expectedValues = [
+    {kind: 'file', name: 'comment'},
+  ];
+  let i = 0;
+  for await (const { kind, name } of dirHandle.getEntries()) {
+    if (i > expectedValues.length) {
+      t.fail('iterated past expected number of values');
+      break;
+    }
+    t.is(kind.toString(), expectedValues[i].kind);
+    t.is(name, expectedValues[i].name);
+    i++
+  }
+  t.is(i, expectedValues.length);
+})
+
 test.serial('should return error when getting unknown directory', async (t) => {
   const rootHandle = getRootHandle();
   const err = await t.throwsAsync(rootHandle.getDirectoryHandle('unknown'));
@@ -342,6 +382,34 @@ test.serial('should return directory when creating new directory', async (t) => 
 test.serial('should return directory when "creating" existing directory', async (t) => {
   const rootHandle = getRootHandle();
   const dirHandle = await rootHandle.getDirectoryHandle('first', {create: true});
+  t.is(dirHandle.kind, 'directory');
+  t.is(dirHandle.name, 'first');
+})
+
+test.serial('should return error when getting unknown directory via deprecated getDirectory', async (t) => {
+  const rootHandle = getRootHandle();
+  const err = await t.throwsAsync(rootHandle.getDirectory('unknown'));
+  t.is(err?.message, 'Directory "unknown" not found');
+})
+
+test.serial('should return directory when getting existing directory via deprecated getDirectory', async (t) => {
+  const rootHandle = getRootHandle();
+  const dirHandle = await rootHandle.getDirectory('first');
+  t.is(dirHandle.kind, 'directory');
+  t.is(dirHandle.name, 'first');
+})
+
+test.serial('should return directory when creating new directory via deprecated getDirectory', async (t) => {
+  const rootHandle = getRootHandle();
+  const dirHandle = await rootHandle.getDirectory('newlywed', {create: true});
+  t.is(dirHandle.kind, 'directory');
+  t.is(dirHandle.name, 'newlywed');
+  await rootHandle.removeEntry(dirHandle.name);
+})
+
+test.serial('should return directory when "creating" existing directory via deprecated getDirectory', async (t) => {
+  const rootHandle = getRootHandle();
+  const dirHandle = await rootHandle.getDirectory('first', {create: true});
   t.is(dirHandle.kind, 'directory');
   t.is(dirHandle.name, 'first');
 })
@@ -373,6 +441,38 @@ test.serial('should return file when "creating" existing file', async (t) => {
   const rootHandle = getRootHandle();
   for (const name of ['annar', '3']) {
     const dirHandle = await rootHandle.getFileHandle(name, {create: true});
+    t.is(dirHandle.kind, 'file');
+    t.is(dirHandle.name, name);
+  }
+})
+
+test.serial('should return error when getting unknown file via deprecated getFile', async (t) => {
+  const rootHandle = getRootHandle();
+  const err = await t.throwsAsync(rootHandle.getFile('unknown'));
+  t.is(err?.message, 'File "unknown" not found');
+})
+
+test.serial('should return file when getting existing file via deprecated getFile', async (t) => {
+  const rootHandle = getRootHandle();
+  for (const name of ['annar', '3']) {
+    const dirHandle = await rootHandle.getFile(name);
+    t.is(dirHandle.kind, 'file');
+    t.is(dirHandle.name, name);
+  }
+})
+
+test.serial('should return file when creating new file via deprecated getFile', async (t) => {
+  const rootHandle = getRootHandle();
+  const fileHandle = await rootHandle.getFile('newfoundland', {create: true});
+  t.is(fileHandle.kind, 'file');
+  t.is(fileHandle.name, 'newfoundland');
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
+test.serial('should return file when "creating" existing file via deprecated getFile', async (t) => {
+  const rootHandle = getRootHandle();
+  for (const name of ['annar', '3']) {
+    const dirHandle = await rootHandle.getFile(name, {create: true});
     t.is(dirHandle.kind, 'file');
     t.is(dirHandle.name, name);
   }
@@ -1103,8 +1203,7 @@ test.serial('should succeed when aborting writable file stream', async (t) => {
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-abort', {create: true}) as NfsFileHandle;
   const writable = await fileHandle.createWritable();
-  const reason = await writable.abort('I got my reasons');
-  t.is(reason, 'I got my reasons');
+  await t.notThrowsAsync(writable.abort('I got my reasons'));
   await rootHandle.removeEntry(fileHandle.name);
 })
 
