@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const ava_1 = __importDefault(require("ava"));
 const indax_1 = require("../indax");
-const nfsURL = 'nfs://127.0.0.1/Users/Shared/nfs/';
+const nfsURL = process.env.NFS_URL || 'nfs://127.0.0.1/Users/Shared/nfs/';
 function getRootHandle() {
     return new indax_1.NfsDirectoryHandle(nfsURL);
 }
@@ -133,24 +133,28 @@ ava_1.default.serial('should be granted readwrite permission when requesting on 
 });
 ava_1.default.serial('should iterate through directory', async (t) => {
     const rootHandle = getRootHandle();
-    const expectedEntries = [
-        { key: '3', value: { kind: 'file', name: '3' } },
-        { key: 'annar', value: { kind: 'file', name: 'annar' } },
-        { key: 'quatre', value: { kind: 'directory', name: 'quatre' } },
-        { key: 'first', value: { kind: 'directory', name: 'first' } },
-    ];
+    const expectedEntries = new Map([
+        ['3', 'file'],
+        ['annar', 'file'],
+        ['quatre', 'directory'],
+        ['first', 'directory'],
+    ]);
     let i = 0;
     for await (const [key, value] of rootHandle) {
-        if (i > expectedEntries.length) {
+        if (i > expectedEntries.size) {
             t.fail('iterated past expected number of entries');
             break;
         }
-        t.is(key, expectedEntries[i].key);
-        t.is(value.kind.toString(), expectedEntries[i].value.kind);
-        t.is(value.name, expectedEntries[i].value.name);
+        const expectedKind = expectedEntries.get(key);
+        if (!expectedKind) {
+            t.fail('unexpected entry: ' + key);
+            break;
+        }
+        t.is(value.kind.toString(), expectedKind);
+        t.is(value.name, key);
         i++;
     }
-    t.is(i, expectedEntries.length);
+    t.is(i, expectedEntries.size);
 });
 ava_1.default.serial('should iterate through subdirectory', async (t) => {
     const rootHandle = getRootHandle();
@@ -189,24 +193,28 @@ ava_1.default.serial('should iterate through subsubdirectory', async (t) => {
 });
 ava_1.default.serial('should iterate through entries', async (t) => {
     const rootHandle = getRootHandle();
-    const expectedEntries = [
-        { key: '3', value: { kind: 'file', name: '3' } },
-        { key: 'annar', value: { kind: 'file', name: 'annar' } },
-        { key: 'quatre', value: { kind: 'directory', name: 'quatre' } },
-        { key: 'first', value: { kind: 'directory', name: 'first' } },
-    ];
+    const expectedEntries = new Map([
+        ['3', 'file'],
+        ['annar', 'file'],
+        ['quatre', 'directory'],
+        ['first', 'directory'],
+    ]);
     let i = 0;
     for await (const [key, value] of rootHandle.entries()) {
-        if (i > expectedEntries.length) {
+        if (i > expectedEntries.size) {
             t.fail('iterated past expected number of entries');
             break;
         }
-        t.is(key, expectedEntries[i].key);
-        t.is(value.kind.toString(), expectedEntries[i].value.kind);
-        t.is(value.name, expectedEntries[i].value.name);
+        const expectedKind = expectedEntries.get(key);
+        if (!expectedKind) {
+            t.fail('unexpected entry: ' + key);
+            break;
+        }
+        t.is(value.kind.toString(), expectedKind);
+        t.is(value.name, key);
         i++;
     }
-    t.is(i, expectedEntries.length);
+    t.is(i, expectedEntries.size);
 });
 ava_1.default.serial('should iterate through subdirectory entries', async (t) => {
     const rootHandle = getRootHandle();
@@ -229,16 +237,17 @@ ava_1.default.serial('should iterate through subdirectory entries', async (t) =>
 });
 ava_1.default.serial('should iterate through keys', async (t) => {
     const rootHandle = getRootHandle();
-    const expectedKeys = ['3', 'annar', 'quatre', 'first'];
+    const expectedKeys = new Set(['3', 'annar', 'quatre', 'first']);
     let i = 0;
     for await (const key of rootHandle.keys()) {
-        if (i > expectedKeys.length) {
+        if (i > expectedKeys.size) {
             t.fail('iterated past expected number of keys');
             break;
         }
-        t.is(key, expectedKeys[i++]);
+        t.true(expectedKeys.has(key));
+        i++;
     }
-    t.is(i, expectedKeys.length);
+    t.is(i, expectedKeys.size);
 });
 ava_1.default.serial('should iterate through subdirectory keys', async (t) => {
     const rootHandle = getRootHandle();
@@ -256,14 +265,36 @@ ava_1.default.serial('should iterate through subdirectory keys', async (t) => {
 });
 ava_1.default.serial('should iterate through values', async (t) => {
     const rootHandle = getRootHandle();
-    const expectedValues = [
-        { kind: 'file', name: '3' },
-        { kind: 'file', name: 'annar' },
-        { kind: 'directory', name: 'quatre' },
-        { kind: 'directory', name: 'first' },
-    ];
+    const expectedValues = new Map([
+        ['3', 'file'],
+        ['annar', 'file'],
+        ['quatre', 'directory'],
+        ['first', 'directory'],
+    ]);
     let i = 0;
     for await (const { kind, name } of rootHandle.values()) {
+        if (i > expectedValues.size) {
+            t.fail('iterated past expected number of values');
+            break;
+        }
+        const expectedKind = expectedValues.get(name);
+        if (!expectedKind) {
+            t.fail('unexpected value: ' + name);
+            break;
+        }
+        t.is(kind.toString(), expectedKind);
+        i++;
+    }
+    t.is(i, expectedValues.size);
+});
+ava_1.default.serial('should iterate through subdirectory values', async (t) => {
+    const rootHandle = getRootHandle();
+    const dirHandle = await rootHandle.getDirectoryHandle('first');
+    const expectedValues = [
+        { kind: 'file', name: 'comment' },
+    ];
+    let i = 0;
+    for await (const { kind, name } of dirHandle.values()) {
         if (i > expectedValues.length) {
             t.fail('iterated past expected number of values');
             break;
@@ -274,14 +305,38 @@ ava_1.default.serial('should iterate through values', async (t) => {
     }
     t.is(i, expectedValues.length);
 });
-ava_1.default.serial('should iterate through subdirectory values', async (t) => {
+ava_1.default.serial('should iterate through values via deprecated getEntries', async (t) => {
+    const rootHandle = getRootHandle();
+    const expectedValues = new Map([
+        ['3', 'file'],
+        ['annar', 'file'],
+        ['quatre', 'directory'],
+        ['first', 'directory'],
+    ]);
+    let i = 0;
+    for await (const { kind, name } of rootHandle.getEntries()) {
+        if (i > expectedValues.size) {
+            t.fail('iterated past expected number of values');
+            break;
+        }
+        const expectedKind = expectedValues.get(name);
+        if (!expectedKind) {
+            t.fail('unexpected value: ' + name);
+            break;
+        }
+        t.is(kind.toString(), expectedKind);
+        i++;
+    }
+    t.is(i, expectedValues.size);
+});
+ava_1.default.serial('should iterate through subdirectory values via deprecated getEntries', async (t) => {
     const rootHandle = getRootHandle();
     const dirHandle = await rootHandle.getDirectoryHandle('first');
     const expectedValues = [
         { kind: 'file', name: 'comment' },
     ];
     let i = 0;
-    for await (const { kind, name } of dirHandle.values()) {
+    for await (const { kind, name } of dirHandle.getEntries()) {
         if (i > expectedValues.length) {
             t.fail('iterated past expected number of values');
             break;
@@ -316,6 +371,30 @@ ava_1.default.serial('should return directory when "creating" existing directory
     t.is(dirHandle.kind, 'directory');
     t.is(dirHandle.name, 'first');
 });
+ava_1.default.serial('should return error when getting unknown directory via deprecated getDirectory', async (t) => {
+    const rootHandle = getRootHandle();
+    const err = await t.throwsAsync(rootHandle.getDirectory('unknown'));
+    t.is(err?.message, 'Directory "unknown" not found');
+});
+ava_1.default.serial('should return directory when getting existing directory via deprecated getDirectory', async (t) => {
+    const rootHandle = getRootHandle();
+    const dirHandle = await rootHandle.getDirectory('first');
+    t.is(dirHandle.kind, 'directory');
+    t.is(dirHandle.name, 'first');
+});
+ava_1.default.serial('should return directory when creating new directory via deprecated getDirectory', async (t) => {
+    const rootHandle = getRootHandle();
+    const dirHandle = await rootHandle.getDirectory('newlywed', { create: true });
+    t.is(dirHandle.kind, 'directory');
+    t.is(dirHandle.name, 'newlywed');
+    await rootHandle.removeEntry(dirHandle.name);
+});
+ava_1.default.serial('should return directory when "creating" existing directory via deprecated getDirectory', async (t) => {
+    const rootHandle = getRootHandle();
+    const dirHandle = await rootHandle.getDirectory('first', { create: true });
+    t.is(dirHandle.kind, 'directory');
+    t.is(dirHandle.name, 'first');
+});
 ava_1.default.serial('should return error when getting unknown file', async (t) => {
     const rootHandle = getRootHandle();
     const err = await t.throwsAsync(rootHandle.getFileHandle('unknown'));
@@ -340,6 +419,34 @@ ava_1.default.serial('should return file when "creating" existing file', async (
     const rootHandle = getRootHandle();
     for (const name of ['annar', '3']) {
         const dirHandle = await rootHandle.getFileHandle(name, { create: true });
+        t.is(dirHandle.kind, 'file');
+        t.is(dirHandle.name, name);
+    }
+});
+ava_1.default.serial('should return error when getting unknown file via deprecated getFile', async (t) => {
+    const rootHandle = getRootHandle();
+    const err = await t.throwsAsync(rootHandle.getFile('unknown'));
+    t.is(err?.message, 'File "unknown" not found');
+});
+ava_1.default.serial('should return file when getting existing file via deprecated getFile', async (t) => {
+    const rootHandle = getRootHandle();
+    for (const name of ['annar', '3']) {
+        const dirHandle = await rootHandle.getFile(name);
+        t.is(dirHandle.kind, 'file');
+        t.is(dirHandle.name, name);
+    }
+});
+ava_1.default.serial('should return file when creating new file via deprecated getFile', async (t) => {
+    const rootHandle = getRootHandle();
+    const fileHandle = await rootHandle.getFile('newfoundland', { create: true });
+    t.is(fileHandle.kind, 'file');
+    t.is(fileHandle.name, 'newfoundland');
+    await rootHandle.removeEntry(fileHandle.name);
+});
+ava_1.default.serial('should return file when "creating" existing file via deprecated getFile', async (t) => {
+    const rootHandle = getRootHandle();
+    for (const name of ['annar', '3']) {
+        const dirHandle = await rootHandle.getFile(name, { create: true });
         t.is(dirHandle.kind, 'file');
         t.is(dirHandle.name, name);
     }
@@ -575,7 +682,7 @@ ava_1.default.serial('should return error when writing unsupported type', async 
     t.is(err?.message, 'Writing unsupported type');
     await rootHandle.removeEntry(fileHandle.name);
 });
-(0, ava_1.default)('should succeed when writing blob', async (t) => {
+ava_1.default.serial('should succeed when writing blob', async (t) => {
     const rootHandle = getRootHandle();
     const fileHandle = await rootHandle.getFileHandle('writable-write-blob', { create: true });
     const writable = await fileHandle.createWritable();
@@ -660,7 +767,7 @@ ava_1.default.serial('should return error when writing unsupported object data t
     t.is(err?.message, 'Writing unsupported data type');
     await rootHandle.removeEntry(fileHandle.name);
 });
-(0, ava_1.default)('should succeed when writing blob via struct', async (t) => {
+ava_1.default.serial('should succeed when writing blob via struct', async (t) => {
     const rootHandle = getRootHandle();
     const fileHandle = await rootHandle.getFileHandle('writable-write-blob-via-struct', { create: true });
     const writable = await fileHandle.createWritable();
@@ -704,7 +811,7 @@ ava_1.default.serial('should succeed when writing data view via struct', async (
     t.deepEqual(dvb, dv);
     await rootHandle.removeEntry(fileHandle.name);
 });
-(0, ava_1.default)('should succeed when writing array buffer via struct', async (t) => {
+ava_1.default.serial('should succeed when writing array buffer via struct', async (t) => {
     const rootHandle = getRootHandle();
     const fileHandle = await rootHandle.getFileHandle('writable-write-array-buffer-via-struct', { create: true });
     const writable = await fileHandle.createWritable();
@@ -1008,8 +1115,7 @@ ava_1.default.serial('should succeed when aborting writable file stream', async 
     const rootHandle = getRootHandle();
     const fileHandle = await rootHandle.getFileHandle('writable-abort', { create: true });
     const writable = await fileHandle.createWritable();
-    const reason = await writable.abort('I got my reasons');
-    t.is(reason, 'I got my reasons');
+    await t.notThrowsAsync(writable.abort('I got my reasons'));
     await rootHandle.removeEntry(fileHandle.name);
 });
 ava_1.default.serial('should return writer for writable file stream', async (t) => {

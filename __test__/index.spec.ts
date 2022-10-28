@@ -2,7 +2,7 @@ import test from 'ava'
 
 import { NfsDirectoryHandle, NfsFileHandle } from '../indax'
 
-const nfsURL = 'nfs://127.0.0.1/Users/Shared/nfs/';
+const nfsURL = process.env.NFS_URL || 'nfs://127.0.0.1/Users/Shared/nfs/';
 
 function getRootHandle(): NfsDirectoryHandle {
   return new NfsDirectoryHandle(nfsURL);
@@ -150,24 +150,28 @@ test.serial('should be granted readwrite permission when requesting on file', as
 
 test.serial('should iterate through directory', async (t) => {
   const rootHandle = getRootHandle();
-  const expectedEntries = [
-    {key: '3', value: {kind: 'file', name: '3'}},
-    {key: 'annar', value: {kind: 'file', name: 'annar'}},
-    {key: 'quatre', value: {kind: 'directory', name: 'quatre'}},
-    {key: 'first', value: {kind: 'directory', name: 'first'}},
-  ];
+  const expectedEntries = new Map<string, string>([
+    ['3', 'file'],
+    ['annar', 'file'],
+    ['quatre', 'directory'],
+    ['first', 'directory'],
+  ]);
   let i = 0;
   for await (const [ key, value ] of rootHandle) {
-    if (i > expectedEntries.length) {
+    if (i > expectedEntries.size) {
       t.fail('iterated past expected number of entries');
       break;
     }
-    t.is(key, expectedEntries[i].key);
-    t.is(value.kind.toString(), expectedEntries[i].value.kind);
-    t.is(value.name, expectedEntries[i].value.name);
+    const expectedKind = expectedEntries.get(key);
+    if (!expectedKind) {
+      t.fail('unexpected entry: ' + key);
+      break;
+    }
+    t.is(value.kind.toString(), expectedKind);
+    t.is(value.name, key);
     i++
   }
-  t.is(i, expectedEntries.length);
+  t.is(i, expectedEntries.size);
 })
 
 test.serial('should iterate through subdirectory', async (t) => {
@@ -209,24 +213,28 @@ test.serial('should iterate through subsubdirectory', async (t) => {
 
 test.serial('should iterate through entries', async (t) => {
   const rootHandle = getRootHandle();
-  const expectedEntries = [
-    {key: '3', value: {kind: 'file', name: '3'}},
-    {key: 'annar', value: {kind: 'file', name: 'annar'}},
-    {key: 'quatre', value: {kind: 'directory', name: 'quatre'}},
-    {key: 'first', value: {kind: 'directory', name: 'first'}},
-  ];
+  const expectedEntries = new Map<string, string>([
+    ['3', 'file'],
+    ['annar', 'file'],
+    ['quatre', 'directory'],
+    ['first', 'directory'],
+  ]);
   let i = 0;
   for await (const [ key, value ] of rootHandle.entries()) {
-    if (i > expectedEntries.length) {
+    if (i > expectedEntries.size) {
       t.fail('iterated past expected number of entries');
       break;
     }
-    t.is(key, expectedEntries[i].key);
-    t.is(value.kind.toString(), expectedEntries[i].value.kind);
-    t.is(value.name, expectedEntries[i].value.name);
+    const expectedKind = expectedEntries.get(key);
+    if (!expectedKind) {
+      t.fail('unexpected entry: ' + key);
+      break;
+    }
+    t.is(value.kind.toString(), expectedKind);
+    t.is(value.name, key);
     i++
   }
-  t.is(i, expectedEntries.length);
+  t.is(i, expectedEntries.size);
 })
 
 test.serial('should iterate through subdirectory entries', async (t) => {
@@ -251,16 +259,17 @@ test.serial('should iterate through subdirectory entries', async (t) => {
 
 test.serial('should iterate through keys', async (t) => {
   const rootHandle = getRootHandle();
-  const expectedKeys = ['3', 'annar', 'quatre', 'first'];
+  const expectedKeys = new Set<string>(['3', 'annar', 'quatre', 'first']);
   let i = 0;
   for await (const key of rootHandle.keys()) {
-    if (i > expectedKeys.length) {
+    if (i > expectedKeys.size) {
       t.fail('iterated past expected number of keys');
       break;
     }
-    t.is(key, expectedKeys[i++]);
+    t.true(expectedKeys.has(key));
+    i++
   }
-  t.is(i, expectedKeys.length);
+  t.is(i, expectedKeys.size);
 })
 
 test.serial('should iterate through subdirectory keys', async (t) => {
@@ -280,23 +289,27 @@ test.serial('should iterate through subdirectory keys', async (t) => {
 
 test.serial('should iterate through values', async (t) => {
   const rootHandle = getRootHandle();
-  const expectedValues = [
-    {kind: 'file', name: '3'},
-    {kind: 'file', name: 'annar'},
-    {kind: 'directory', name: 'quatre'},
-    {kind: 'directory', name: 'first'},
-  ];
+  const expectedValues = new Map<string, string>([
+    ['3', 'file'],
+    ['annar', 'file'],
+    ['quatre', 'directory'],
+    ['first', 'directory'],
+  ]);
   let i = 0;
   for await (const { kind, name } of rootHandle.values()) {
-    if (i > expectedValues.length) {
+    if (i > expectedValues.size) {
       t.fail('iterated past expected number of values');
       break;
     }
-    t.is(kind.toString(), expectedValues[i].kind);
-    t.is(name, expectedValues[i].name);
+    const expectedKind = expectedValues.get(name);
+    if (!expectedKind) {
+      t.fail('unexpected value: ' + name);
+      break;
+    }
+    t.is(kind.toString(), expectedKind);
     i++
   }
-  t.is(i, expectedValues.length);
+  t.is(i, expectedValues.size);
 })
 
 test.serial('should iterate through subdirectory values', async (t) => {
@@ -320,23 +333,27 @@ test.serial('should iterate through subdirectory values', async (t) => {
 
 test.serial('should iterate through values via deprecated getEntries', async (t) => {
   const rootHandle = getRootHandle();
-  const expectedValues = [
-    {kind: 'file', name: '3'},
-    {kind: 'file', name: 'annar'},
-    {kind: 'directory', name: 'quatre'},
-    {kind: 'directory', name: 'first'},
-  ];
+  const expectedValues = new Map<string, string>([
+    ['3', 'file'],
+    ['annar', 'file'],
+    ['quatre', 'directory'],
+    ['first', 'directory'],
+  ]);
   let i = 0;
   for await (const { kind, name } of rootHandle.getEntries()) {
-    if (i > expectedValues.length) {
+    if (i > expectedValues.size) {
       t.fail('iterated past expected number of values');
       break;
     }
-    t.is(kind.toString(), expectedValues[i].kind);
-    t.is(name, expectedValues[i].name);
+    const expectedKind = expectedValues.get(name);
+    if (!expectedKind) {
+      t.fail('unexpected value: ' + name);
+      break;
+    }
+    t.is(kind.toString(), expectedKind);
     i++
   }
-  t.is(i, expectedValues.length);
+  t.is(i, expectedValues.size);
 })
 
 test.serial('should iterate through subdirectory values via deprecated getEntries', async (t) => {
@@ -505,7 +522,7 @@ test.serial('should return error when removing unknown entry recursively', async
 test.serial('should succeed when removing recursively non-empty directory', async (t) => {
   const rootHandle = getRootHandle();
   const dirHandle = await rootHandle.getDirectoryHandle('condemned', {create: true});
-  await t.notThrowsAsync(dirHandle.getFileHandle('asylum', {create: true}))
+  await t.notThrowsAsync(dirHandle.getFileHandle('asylum', {create: true}));
   await t.notThrowsAsync(rootHandle.removeEntry(dirHandle.name, {recursive: true}));
 })
 
@@ -714,7 +731,7 @@ test.serial('should return non-locked writable when creating writable and not ke
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-overwrite', {create: true}) as NfsFileHandle;
   const writable = await fileHandle.createWritable();
-  t.false(writable.locked)
+  t.false(writable.locked);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -722,7 +739,7 @@ test.serial('should return non-locked writable when creating writable and keepin
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-append', {create: true}) as NfsFileHandle;
   const writable = await fileHandle.createWritable({keepExistingData: true});
-  t.false(writable.locked)
+  t.false(writable.locked);
   await rootHandle.removeEntry(fileHandle.name);
 })
 
@@ -735,7 +752,7 @@ test.serial('should return error when writing unsupported type', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing blob', async (t) => {
+test.serial('should succeed when writing blob', async (t) => {
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-write-blob', {create: true}) as NfsFileHandle;
   const writable = await fileHandle.createWritable();
@@ -827,7 +844,7 @@ test.serial('should return error when writing unsupported object data type', asy
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing blob via struct', async (t) => {
+test.serial('should succeed when writing blob via struct', async (t) => {
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-write-blob-via-struct', {create: true}) as NfsFileHandle;
   const writable = await fileHandle.createWritable();
@@ -874,7 +891,7 @@ test.serial('should succeed when writing data view via struct', async (t) => {
   await rootHandle.removeEntry(fileHandle.name);
 })
 
-test('should succeed when writing array buffer via struct', async (t) => {
+test.serial('should succeed when writing array buffer via struct', async (t) => {
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-write-array-buffer-via-struct', {create: true}) as NfsFileHandle;
   const writable = await fileHandle.createWritable();
