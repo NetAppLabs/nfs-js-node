@@ -1,0 +1,6 @@
+[submodule "libnfs-sys"]
+	path = libnfs-sys
+	url = git@github.com:NetAppLabs/libnfs-sys.git
+[submodule "libnfs-rs"]
+	path = libnfs-rs
+	url = git@github.com:NetAppLabs/libnfs-rs.git

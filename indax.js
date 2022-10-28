@@ -1,4 +1,5 @@
 "use strict";
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NfsWritableFileStream = exports.NfsFileHandle = exports.NfsDirectoryHandle = exports.NfsHandle = void 0;
 const index_1 = require("./index");
@@ -7,6 +8,8 @@ class NfsHandle {
         this._jsh = _jsh;
         this.kind = _jsh.kind;
         this.name = _jsh.name;
+        this.isFile = _jsh.kind == 'file';
+        this.isDirectory = _jsh.kind == 'directory';
     }
     isSameEntry(other) {
         return new Promise(async (resolve, reject) => {
@@ -31,6 +34,7 @@ class NfsDirectoryHandle extends NfsHandle {
         const [url, toWrap] = typeof param === 'string' ? [param] : ['', param];
         const _js = toWrap || new index_1.JsNfsDirectoryHandle(url);
         super(_js.toHandle());
+        this[_a] = this.entries;
         this[Symbol.asyncIterator] = this.entries;
         this._js = _js;
         this.kind = 'directory';
@@ -87,7 +91,7 @@ class NfsDirectoryHandle extends NfsHandle {
     }
 }
 exports.NfsDirectoryHandle = NfsDirectoryHandle;
-Symbol.asyncIterator;
+_a = Symbol.asyncIterator;
 class NfsFileHandle extends NfsHandle {
     constructor(_js) {
         super(_js.toHandle());
@@ -144,7 +148,11 @@ class NfsWritableFileStream {
         return this._js.close();
     }
     async abort(reason) {
-        return this._js.abort(reason);
+        return new Promise(async (resolve, reject) => {
+            await this._js.abort(reason)
+                .then((_reason) => resolve())
+                .catch((reason) => reject(reason));
+        });
     }
     getWriter() {
         const writer = this._js.getWriter();
