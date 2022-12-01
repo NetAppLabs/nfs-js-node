@@ -10,7 +10,7 @@ version = "0.2.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-libnfs = { version = "0.1.0", path = "../libnfs-rs" }
+libnfs = { version = "0.1.0", path = "./libnfs-rs" }
 mime_guess = "2.0.4"
 napi = { version = "2" , default-features = false, features = [
   "tokio_fs",
