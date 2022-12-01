@@ -218,6 +218,26 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { NFSDirectoryHandle } = nativeBinding
+const {
+  JsNfsDirectoryHandleEntries,
+  JsNfsDirectoryHandleKeys,
+  JsNfsDirectoryHandleValues,
+  JsNfsHandle,
+  JsNfsDirectoryHandle,
+  JsNfsFileHandle,
+  JsNfsFile,
+  JsNfsReadableStreamSource,
+  JsNfsWritableFileStream,
+  JsNfsWritableStreamSink,
+} = nativeBinding
 
-module.exports.NFSDirectoryHandle = NFSDirectoryHandle
+module.exports.JsNfsDirectoryHandleEntries = JsNfsDirectoryHandleEntries
+module.exports.JsNfsDirectoryHandleKeys = JsNfsDirectoryHandleKeys
+module.exports.JsNfsDirectoryHandleValues = JsNfsDirectoryHandleValues
+module.exports.JsNfsHandle = JsNfsHandle
+module.exports.JsNfsDirectoryHandle = JsNfsDirectoryHandle
+module.exports.JsNfsFileHandle = JsNfsFileHandle
+module.exports.JsNfsFile = JsNfsFile
+module.exports.JsNfsReadableStreamSource = JsNfsReadableStreamSource
+module.exports.JsNfsWritableFileStream = JsNfsWritableFileStream
+module.exports.JsNfsWritableStreamSink = JsNfsWritableStreamSink
