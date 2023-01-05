@@ -200,13 +200,25 @@ export class NfsWritableFileStream implements NfsWritableFileStreamLock {
     });
   }
   async seek(position: number): Promise<void> {
-    return this._js.seek(position);
+    return new Promise(async (resolve, reject) => {
+      await this._js.seek(position)
+        .then(() => resolve())
+        .catch((reason) => reject(reason));
+    });
   }
   async truncate(size: number): Promise<void> {
-    return this._js.truncate(size);
+    return new Promise(async (resolve, reject) => {
+      await this._js.truncate(size)
+        .then(() => resolve())
+        .catch((reason) => reject(reason));
+    });
   }
   async close(): Promise<void> {
-    return this._js.close();
+    return new Promise(async (resolve, reject) => {
+      await this._js.close()
+        .then(() => resolve())
+        .catch((reason) => reject(reason));
+    });
   }
   async abort(reason: string): Promise<void> {
     return new Promise(async (resolve, reject) => {

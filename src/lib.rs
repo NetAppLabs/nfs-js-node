@@ -157,7 +157,7 @@ fn get_mocks() -> &'static mut Arc<RwLock<Mocks>> {
 }
 
 #[napi(iterator)]
-struct JsNfsDirectoryHandleEntries {
+pub struct JsNfsDirectoryHandleEntries {
   #[napi(js_name="[Symbol.asyncIterator]", ts_type="AsyncIterableIterator<[string, JsNfsDirectoryHandle | JsNfsFileHandle]>")]
   pub _sym: bool, // unused fake member, just to so that generated JsNfsDirectoryHandleEntries class specifies `[Symbol.asyncIterator]: AsyncIterableIterator<[string, JsNfsDirectoryHandle | JsNfsFileHandle]>`
   env: SendWrapper<Env>,
@@ -190,7 +190,7 @@ impl Generator for JsNfsDirectoryHandleEntries {
 }
 
 #[napi(iterator)]
-struct JsNfsDirectoryHandleKeys {
+pub struct JsNfsDirectoryHandleKeys {
   #[napi(js_name="[Symbol.asyncIterator]", ts_type="AsyncIterableIterator<string>")]
   pub _sym: bool, // unused fake member, just to so that generated JsNfsDirectoryHandleKeys class specifies `[Symbol.asyncIterator]: AsyncIterableIterator<string>`
   entries: Vec<JsNfsHandle>,
@@ -217,7 +217,7 @@ impl Generator for JsNfsDirectoryHandleKeys {
 }
 
 #[napi(iterator)]
-struct JsNfsDirectoryHandleValues {
+pub struct JsNfsDirectoryHandleValues {
   #[napi(js_name="[Symbol.asyncIterator]", ts_type="AsyncIterableIterator<JsNfsDirectoryHandle | JsNfsFileHandle>")]
   pub _sym: bool, // unused fake member, just to so that generated JsNfsDirectoryHandleValues class specifies `[Symbol.asyncIterator]: AsyncIterableIterator<JsNfsDirectoryHandle | JsNfsFileHandle>`
   entries: Vec<JsNfsHandle>,
@@ -247,7 +247,7 @@ impl Generator for JsNfsDirectoryHandleValues {
 }
 
 #[napi(object)]
-struct JsNfsHandlePermissionDescriptor {
+pub struct JsNfsHandlePermissionDescriptor {
   #[napi(ts_type="'read' | 'readwrite'")]
   pub mode: String
 }
@@ -269,7 +269,7 @@ impl JsNfsHandlePermissionDescriptor {
 }
 
 #[napi(object)]
-struct JsNfsGetDirectoryOptions {
+pub struct JsNfsGetDirectoryOptions {
   pub create: bool
 }
 
@@ -281,7 +281,7 @@ impl Default for JsNfsGetDirectoryOptions {
 }
 
 #[napi(object)]
-struct JsNfsGetFileOptions {
+pub struct JsNfsGetFileOptions {
   pub create: bool
 }
 
@@ -293,7 +293,7 @@ impl Default for JsNfsGetFileOptions {
 }
 
 #[napi(object)]
-struct JsNfsRemoveOptions {
+pub struct JsNfsRemoveOptions {
   pub recursive: bool
 }
 
@@ -305,7 +305,7 @@ impl Default for JsNfsRemoveOptions {
 }
 
 #[napi(object)]
-struct JsNfsCreateWritableOptions {
+pub struct JsNfsCreateWritableOptions {
   pub keep_existing_data: bool
 }
 
@@ -318,7 +318,7 @@ impl Default for JsNfsCreateWritableOptions {
 
 #[derive(Clone)]
 #[napi]
-struct JsNfsHandle {
+pub struct JsNfsHandle {
   nfs: Option<Arc<RwLock<Nfs>>>,
   path: String,
   #[napi(readonly, ts_type="'directory' | 'file'")]
@@ -417,7 +417,7 @@ impl FromNapiValue for JsNfsHandle {
 }
 
 #[napi]
-struct JsNfsDirectoryHandle {
+pub struct JsNfsDirectoryHandle {
   handle: JsNfsHandle,
   #[napi(js_name="[Symbol.asyncIterator]", ts_type="JsNfsDirectoryHandle['entries']")]
   pub _sym: bool, // unused fake member, just to so that generated JsNfsDirectoryHandle class specifies `[Symbol.asyncIterator]: JsNfsDirectoryHandle['entries']`
@@ -643,7 +643,7 @@ impl From<JsNfsHandle> for JsNfsDirectoryHandle {
   }
 }
 
-struct JsNfsDirectoryHandleResolve {
+pub struct JsNfsDirectoryHandleResolve {
   handle: JsNfsDirectoryHandle,
   possible_descendant: JsNfsHandle
 }
@@ -669,7 +669,7 @@ impl Task for JsNfsDirectoryHandleResolve {
 }
 
 #[napi]
-struct JsNfsFileHandle {
+pub struct JsNfsFileHandle {
   handle: JsNfsHandle,
   #[napi(readonly, ts_type="'file'")]
   pub kind: String,
@@ -729,7 +729,7 @@ impl From<JsNfsHandle> for JsNfsFileHandle {
 }
 
 #[napi]
-struct JsNfsFile {
+pub struct JsNfsFile {
   handle: JsNfsHandle,
   #[napi(readonly)]
   pub size: i64,
@@ -812,7 +812,7 @@ impl JsNfsFile {
   }
 }
 
-struct JsNfsFileArrayBuffer(JsNfsFile);
+pub struct JsNfsFileArrayBuffer(JsNfsFile);
 
 #[napi]
 impl Task for JsNfsFileArrayBuffer {
@@ -831,7 +831,7 @@ impl Task for JsNfsFileArrayBuffer {
 }
 
 #[napi]
-struct JsNfsReadableStreamSource {
+pub struct JsNfsReadableStreamSource {
   content: Vec<u8>,
   count: usize,
   #[napi(readonly, ts_type="'bytes'")]
@@ -846,9 +846,6 @@ impl JsNfsReadableStreamSource {
     let controller = controller.coerce_to_object()?;
     if self.count < self.content.len() {
       let enqueue = controller.get_named_property::<JsFunction>(FIELD_ENQUEUE)?;
-      // let arg = env.create_uint32(self.content[self.count] as u32)?;
-      // let _ = enqueue.call(Some(&controller), &[arg])?;
-      // self.count += 1;
       let arg = env.create_arraybuffer_with_data(self.content.clone())?;
       let arg = arg.into_raw().into_typedarray(TypedArrayType::Uint8, self.content.len(), 0)?;
       let _ = enqueue.call(Some(&controller), &[arg]);
@@ -862,7 +859,7 @@ impl JsNfsReadableStreamSource {
 }
 
 #[napi]
-struct JsNfsWritableFileStream {
+pub struct JsNfsWritableFileStream {
   handle: JsNfsHandle,
   position: Option<i64>,
   #[napi(readonly)]
@@ -1077,8 +1074,8 @@ impl JsNfsWritableFileStream {
     Ok(())
   }
 
-  #[napi]
-  pub async fn seek(&mut self, position: i64) -> Result<Undefined> {
+  #[napi(ts_return_type="Promise<void>")]
+  pub fn seek(&mut self, position: i64) -> Result<Undefined> {
     self.nfs_seek(position)
   }
 
@@ -1111,9 +1108,9 @@ impl JsNfsWritableFileStream {
     Ok(())
   }
 
-  #[napi]
-  pub async fn truncate(&mut self, size: i64) -> Result<Undefined> {
-    self.nfs_truncate(size)
+  #[napi(ts_return_type="Promise<void>")]
+  pub fn truncate(&'static mut self, size: i64) -> AsyncTask<JsNfsWritableFileStreamTruncate> {
+    AsyncTask::new(JsNfsWritableFileStreamTruncate{stream: self, size})
   }
 
   #[napi]
@@ -1146,7 +1143,7 @@ impl JsNfsWritableFileStream {
   }
 }
 
-struct JsNfsWritableFileStreamWriteOptions {
+pub struct JsNfsWritableFileStreamWriteOptions {
   type_: String,
   data: Option<Vec<u8>>,
   position: Option<i64>,
@@ -1160,9 +1157,9 @@ impl Default for JsNfsWritableFileStreamWriteOptions {
   }
 }
 
-struct JsNfsWritableFileStreamWrite {
+pub struct JsNfsWritableFileStreamWrite {
   stream: &'static mut JsNfsWritableFileStream,
-  options: JsNfsWritableFileStreamWriteOptions,
+  options: JsNfsWritableFileStreamWriteOptions
 }
 
 #[napi]
@@ -1186,8 +1183,29 @@ impl Task for JsNfsWritableFileStreamWrite {
   }
 }
 
+pub struct JsNfsWritableFileStreamTruncate {
+  stream: &'static mut JsNfsWritableFileStream,
+  size: i64
+}
+
 #[napi]
-struct JsNfsWritableStreamSink {
+impl Task for JsNfsWritableFileStreamTruncate {
+
+  type Output = ();
+
+  type JsValue = ();
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    self.stream.nfs_truncate(self.size)
+  }
+
+  fn resolve(&mut self, _env: Env, _output: Self::Output) -> Result<Self::JsValue> {
+    Ok(())
+  }
+}
+
+#[napi]
+pub struct JsNfsWritableStreamSink {
   stream: &'static mut JsNfsWritableFileStream,
   closed: bool
 }
@@ -1195,14 +1213,14 @@ struct JsNfsWritableStreamSink {
 #[napi]
 impl JsNfsWritableStreamSink {
 
-  #[napi(ts_args_type="controller?: WritableStreamDefaultController")]
-  pub async fn start(&'static mut self) -> Result<()> {
+  #[napi(ts_args_type="controller?: WritableStreamDefaultController", ts_return_type="Promise<void>")]
+  pub fn start(&mut self) -> Result<()> {
     self.stream.locked = true;
     Ok(())
   }
 
-  #[napi]
-  pub async fn abort(&'static mut self, reason: String) -> Result<String> {
+  #[napi(ts_return_type="Promise<string>")]
+  pub fn abort(&mut self, reason: String) -> Result<String> {
     self.close_stream();
     Ok(reason)
   }
@@ -1211,8 +1229,8 @@ impl JsNfsWritableStreamSink {
     self.closed = true;
   }
 
-  #[napi(ts_args_type="controller?: WritableStreamDefaultController")]
-  pub async fn close(&'static mut self) -> Result<()> {
+  #[napi(ts_args_type="controller?: WritableStreamDefaultController", ts_return_type="Promise<void>")]
+  pub fn close(&mut self) -> Result<()> {
     if self.closed {
       return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".into()));
     }
@@ -1233,7 +1251,7 @@ impl JsNfsWritableStreamSink {
   }
 }
 
-struct JsNfsWritableStreamWrite {
+pub struct JsNfsWritableStreamWrite {
   sink: &'static mut JsNfsWritableStreamSink,
   chunk: Vec<u8>
 }
