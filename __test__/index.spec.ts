@@ -158,7 +158,7 @@ test.serial('should iterate through directory', async (t) => {
   ]);
   let i = 0;
   for await (const [ key, value ] of rootHandle) {
-    if (i > expectedEntries.size) {
+    if (i >= expectedEntries.size) {
       t.fail('iterated past expected number of entries');
       break;
     }
@@ -182,7 +182,7 @@ test.serial('should iterate through subdirectory', async (t) => {
   ];
   let i = 0;
   for await (const [ key, value ] of dirHandle) {
-    if (i > expectedEntries.length) {
+    if (i >= expectedEntries.length) {
       t.fail('iterated past expected number of entries');
       break;
     }
@@ -201,7 +201,7 @@ test.serial('should iterate through subsubdirectory', async (t) => {
   const expectedEntries = [];
   let i = 0;
   for await (const [ _key, _value ] of subdirHandle) {
-    if (i > expectedEntries.length) {
+    if (i >= expectedEntries.length) {
       t.fail('iterated past expected number of entries');
       break;
     }
@@ -221,7 +221,7 @@ test.serial('should iterate through entries', async (t) => {
   ]);
   let i = 0;
   for await (const [ key, value ] of rootHandle.entries()) {
-    if (i > expectedEntries.size) {
+    if (i >= expectedEntries.size) {
       t.fail('iterated past expected number of entries');
       break;
     }
@@ -245,7 +245,7 @@ test.serial('should iterate through subdirectory entries', async (t) => {
   ];
   let i = 0;
   for await (const [ key, value ] of dirHandle.entries()) {
-    if (i > expectedEntries.length) {
+    if (i >= expectedEntries.length) {
       t.fail('iterated past expected number of entries');
       break;
     }
@@ -262,7 +262,7 @@ test.serial('should iterate through keys', async (t) => {
   const expectedKeys = new Set<string>(['3', 'annar', 'quatre', 'first']);
   let i = 0;
   for await (const key of rootHandle.keys()) {
-    if (i > expectedKeys.size) {
+    if (i >= expectedKeys.size) {
       t.fail('iterated past expected number of keys');
       break;
     }
@@ -278,7 +278,7 @@ test.serial('should iterate through subdirectory keys', async (t) => {
   const expectedKeys = ['points'];
   let i = 0;
   for await (const key of dirHandle.keys()) {
-    if (i > expectedKeys.length) {
+    if (i >= expectedKeys.length) {
       t.fail('iterated past expected number of keys');
       break;
     }
@@ -297,7 +297,7 @@ test.serial('should iterate through values', async (t) => {
   ]);
   let i = 0;
   for await (const { kind, name } of rootHandle.values()) {
-    if (i > expectedValues.size) {
+    if (i >= expectedValues.size) {
       t.fail('iterated past expected number of values');
       break;
     }
@@ -320,7 +320,7 @@ test.serial('should iterate through subdirectory values', async (t) => {
   ];
   let i = 0;
   for await (const { kind, name } of dirHandle.values()) {
-    if (i > expectedValues.length) {
+    if (i >= expectedValues.length) {
       t.fail('iterated past expected number of values');
       break;
     }
@@ -341,7 +341,7 @@ test.serial('should iterate through values via deprecated getEntries', async (t)
   ]);
   let i = 0;
   for await (const { kind, name } of rootHandle.getEntries()) {
-    if (i > expectedValues.size) {
+    if (i >= expectedValues.size) {
       t.fail('iterated past expected number of values');
       break;
     }
@@ -364,7 +364,7 @@ test.serial('should iterate through subdirectory values via deprecated getEntrie
   ];
   let i = 0;
   for await (const { kind, name } of dirHandle.getEntries()) {
-    if (i > expectedValues.length) {
+    if (i >= expectedValues.length) {
       t.fail('iterated past expected number of values');
       break;
     }

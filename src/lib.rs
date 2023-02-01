@@ -1,11 +1,13 @@
 #![deny(clippy::all)]
 
-use libnfs::Nfs;
 use napi::{JsArrayBuffer, JsDataView, JsString, JsTypedArray, NapiRaw, bindgen_prelude::*};
 use napi_derive::napi;
 use nix::sys::stat::Mode;
 use send_wrapper::SendWrapper;
-use std::{path::Path, collections::{BTreeMap, BTreeSet}, sync::{Arc, RwLock, RwLockWriteGuard}};
+use std::{path::Path, sync::{Arc, RwLock, RwLockWriteGuard}};
+
+mod nfs;
+use nfs::*;
 
 /*
 
@@ -144,17 +146,6 @@ const JS_TYPE_WRITABLE_STREAM: &str = "WritableStream";
 const JS_TYPE_WRITABLE_STREAM_DEFAULT_WRITER: &str = "WritableStreamDefaultWriter";
 
 const READABLE_STREAM_SOURCE_TYPE_BYTES: &str = "bytes";
-
-struct Mocks {
-  dirs: BTreeSet<String>,
-  files: BTreeMap<String, Vec<u8>>
-}
-
-static mut MOCKS: Option<Arc<RwLock<Mocks>>> = None;
-
-fn get_mocks() -> &'static mut Arc<RwLock<Mocks>> {
-  unsafe { MOCKS.get_or_insert(Arc::new(RwLock::new(Mocks{dirs: BTreeSet::new(), files: BTreeMap::new()}))) }
-}
 
 #[napi(iterator)]
 pub struct JsNfsDirectoryHandleEntries {
@@ -319,7 +310,7 @@ impl Default for JsNfsCreateWritableOptions {
 #[derive(Clone)]
 #[napi]
 pub struct JsNfsHandle {
-  nfs: Option<Arc<RwLock<Nfs>>>,
+  nfs: Option<Arc<RwLock<Box<dyn NFS>>>>,
   path: String,
   #[napi(readonly, ts_type="'directory' | 'file'")]
   pub kind: String,
@@ -330,27 +321,8 @@ pub struct JsNfsHandle {
 #[napi]
 impl JsNfsHandle {
 
-  fn get_nfs(url: String) -> Option<Nfs> {
-    std::env::var("TEST_USING_MOCKS").err().and_then(|_| {
-      let mut nfs = Nfs::new().unwrap();
-      let _ = nfs.parse_url_mount(url.as_str()).unwrap();
-      Some(nfs)
-    })
-  }
-
   pub fn open(url: String) -> Self {
-    if let Some(nfs) = Self::get_nfs(url) {
-      Self{nfs: Some(Arc::new(RwLock::new(nfs))), path: DIR_ROOT.into(), kind: KIND_DIRECTORY.into(), name: DIR_ROOT.into()}
-    } else {
-      let mut mocks = get_mocks().write().unwrap();
-      let _ = mocks.dirs.insert("/first/".into());
-      let _ = mocks.dirs.insert("/quatre/".into());
-      let _ = mocks.files.insert("/3".into(), Vec::new());
-      let _ = mocks.files.insert("/annar".into(), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".as_bytes().to_vec());
-      let _ = mocks.files.insert("/first/comment".into(), Vec::new());
-      let _ = mocks.files.insert("/quatre/points".into(), Vec::new());
-      Self{nfs: None, path: DIR_ROOT.into(), kind: KIND_DIRECTORY.into(), name: DIR_ROOT.into()}
-    }
+    Self{nfs: Some(Arc::new(RwLock::new(nfs::connect(url)))), path: DIR_ROOT.into(), kind: KIND_DIRECTORY.into(), name: DIR_ROOT.into()}
   }
 
   fn is_same(&self, other: &JsNfsHandle) -> bool {
@@ -366,9 +338,9 @@ impl JsNfsHandle {
   pub async fn query_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> Result<String> {
     if let Some(nfs) = &self.nfs {
       let my_nfs = nfs.write().unwrap();
-      let nfs_stat = my_nfs.stat64(Path::new(self.path.as_str()))?;
+      let nfs_stat = my_nfs.stat64(self.path.as_str())?;
       let perm_u64 = perm.to_u64(self.kind.as_str());
-      if nfs_stat.nfs_mode & perm_u64 == perm_u64 {
+      if nfs_stat.mode & perm_u64 == perm_u64 {
         return Ok(PERM_STATE_GRANTED.into());
       }
     }
@@ -382,13 +354,13 @@ impl JsNfsHandle {
   pub async fn request_permission(&self, perm: JsNfsHandlePermissionDescriptor) -> Result<String> {
     if let Some(nfs) = &self.nfs {
       let my_nfs = nfs.write().unwrap();
-      let nfs_stat = my_nfs.stat64(Path::new(self.path.as_str()))?;
+      let nfs_stat = my_nfs.stat64(self.path.as_str())?;
       let perm_u64 = perm.to_u64(self.kind.as_str());
-      if nfs_stat.nfs_mode & perm_u64 == perm_u64 {
+      if nfs_stat.mode & perm_u64 == perm_u64 {
         return Ok(PERM_STATE_GRANTED.into());
       }
-      let mode = perm.to_mode(self.kind.as_str()).union(Mode::from_bits_truncate((nfs_stat.nfs_mode as u16).into()));
-      if !my_nfs.lchmod(Path::new(self.name.as_str()), mode).is_ok() {
+      let mode = perm.to_mode(self.kind.as_str()).union(Mode::from_bits_truncate((nfs_stat.mode as u16).into()));
+      if !my_nfs.lchmod(self.name.as_str(), mode.bits() as u32).is_ok() {
         return Ok(PERM_STATE_DENIED.into());
       }
     }
@@ -456,36 +428,19 @@ impl JsNfsDirectoryHandle {
   }
 
   fn nfs_entries(&self) -> Result<Vec<JsNfsHandle>> {
-    if let Some(nfs) = &self.handle.nfs {
-      let mut my_nfs = nfs.write().unwrap();
-      return self.nfs_entries_guarded(&mut my_nfs);
-    }
-
-    let mut entries = Vec::new();
-    let mocks = get_mocks().read().unwrap();
-    for (mock_file, _) in &mocks.files {
-      let (parent_path, name) = get_parent_path_and_name(&mock_file);
-      if parent_path == self.handle.path {
-        entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: mock_file.clone(), kind: KIND_FILE.into(), name});
-      }
-    }
-    for mock_dir in mocks.dirs.iter().rev() {
-      let (parent_path, name) = get_parent_path_and_name(&mock_dir.trim_end_matches('/').into());
-      if parent_path == self.handle.path {
-        entries.push(JsNfsHandle{nfs: self.handle.nfs.clone(), path: mock_dir.clone(), kind: KIND_DIRECTORY.into(), name});
-      }
-    }
-    Ok(entries)
+    let nfs = &self.handle.nfs;
+    let mut my_nfs = nfs.as_ref().unwrap().write().unwrap();
+    self.nfs_entries_guarded(&mut my_nfs)
   }
 
-  fn nfs_entries_guarded(&self, my_nfs: &mut RwLockWriteGuard<Nfs>) -> Result<Vec<JsNfsHandle>> {
+  fn nfs_entries_guarded(&self, my_nfs: &mut RwLockWriteGuard<Box<dyn NFS>>) -> Result<Vec<JsNfsHandle>> {
     let mut entries = Vec::new();
-    let dir = my_nfs.opendir(Path::new(self.handle.path.as_str()))?;
+    let dir = my_nfs.opendir(self.handle.path.as_str())?;
     for entry in dir {
       if let Some(e) = entry.ok() {
-        let name = e.path.into_os_string().into_string().unwrap();
+        let name = e.path;
         let (kind, path) = match e.d_type {
-          libnfs::EntryType::Directory => (KIND_DIRECTORY.into(), format_dir_path(&self.handle.path, &name)),
+          NFSEntryType::Directory => (KIND_DIRECTORY.into(), format_dir_path(&self.handle.path, &name)),
           _ => (KIND_FILE.into(), format_file_path(&self.handle.path, &name))
         };
         if kind != KIND_DIRECTORY || (name != DIR_CURRENT && name != DIR_PARENT) {
@@ -525,15 +480,10 @@ impl JsNfsDirectoryHandle {
       return Err(Error::new(Status::GenericFailure, format!("Directory {:?} not found", name)));
     }
     let path = format_dir_path(&self.handle.path, &name);
-    if let Some(nfs) = &self.handle.nfs {
-      let my_nfs = nfs.write().unwrap();
-      let _ = my_nfs.mkdir(Path::new(path.trim_end_matches('/')))?;
-      Ok(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_DIRECTORY.into(), name}.into())
-    } else {
-      let mut mocks = get_mocks().write().unwrap();
-      mocks.dirs.insert(path.clone());
-      Ok(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_DIRECTORY.into(), name}.into())
-    }
+    let nfs = &self.handle.nfs;
+    let my_nfs = nfs.as_ref().unwrap().write().unwrap();
+    let _ = my_nfs.mkdir(path.trim_end_matches('/'), 0o775)?;
+    Ok(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_DIRECTORY.into(), name}.into())
   }
 
   #[napi]
@@ -550,41 +500,19 @@ impl JsNfsDirectoryHandle {
       return Err(Error::new(Status::GenericFailure, format!("File {:?} not found", name)));
     }
     let path = format_file_path(&self.handle.path, &name);
-    if let Some(nfs) = &self.handle.nfs {
-      let mut my_nfs = nfs.write().unwrap();
-      let _ = my_nfs.create(Path::new(path.as_str()), nix::fcntl::OFlag::O_SYNC, Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IWGRP | Mode::S_IROTH | Mode::S_IWOTH)?;
-      Ok(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_FILE.into(), name}.into())
-    } else {
-      let mut mocks = get_mocks().write().unwrap();
-      mocks.files.insert(path.clone(), Vec::new());
-      Ok(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_FILE.into(), name}.into())
-    }
+    let nfs = &self.handle.nfs;
+    let mut my_nfs = nfs.as_ref().unwrap().write().unwrap();
+    let _ = my_nfs.create(path.as_str(), nix::fcntl::OFlag::O_SYNC.bits() as u32, (Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IWGRP | Mode::S_IROTH | Mode::S_IWOTH).bits() as u32)?; // XXX: change mode value to 0o664?
+    Ok(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_FILE.into(), name}.into())
   }
 
   fn nfs_remove(&self, entry: &JsNfsHandle, recursive: bool) -> Result<()> {
-    if let Some(nfs) = &self.handle.nfs {
-      let mut my_nfs = nfs.write().unwrap();
-      return self.nfs_remove_guarded(&mut my_nfs, entry, recursive);
-    }
-
-    let subentries = match entry.kind.as_str() {
-      KIND_DIRECTORY => JsNfsDirectoryHandle::from(entry.to_owned()).nfs_entries()?,
-      _ => Vec::new(),
-    };
-    let mut mocks = get_mocks().write().unwrap();
-    if entry.kind == KIND_DIRECTORY {
-      if !recursive && subentries.len() > 0 {
-        return Err(Error::new(Status::GenericFailure, format!("Directory {:?} is not empty", entry.name)));
-      }
-      mocks.dirs.remove(&entry.path);
-    } else {
-      mocks.files.remove(&entry.path);
-    }
-
-    Ok(())
+    let nfs = &self.handle.nfs;
+    let mut my_nfs = nfs.as_ref().unwrap().write().unwrap();
+    self.nfs_remove_guarded(&mut my_nfs, entry, recursive)
   }
 
-  fn nfs_remove_guarded(&self, my_nfs: &mut RwLockWriteGuard<Nfs>, entry: &JsNfsHandle, recursive: bool) -> Result<()> {
+  fn nfs_remove_guarded(&self, my_nfs: &mut RwLockWriteGuard<Box<dyn NFS>>, entry: &JsNfsHandle, recursive: bool) -> Result<()> {
     if entry.kind == KIND_DIRECTORY {
       let subentries = JsNfsDirectoryHandle::from(entry.to_owned()).nfs_entries_guarded(my_nfs)?;
       if !recursive && subentries.len() > 0 {
@@ -595,9 +523,9 @@ impl JsNfsDirectoryHandle {
         let _ = self.nfs_remove_guarded(my_nfs, &subentry, recursive)?;
       }
 
-      my_nfs.rmdir(Path::new(entry.path.trim_end_matches('/')))?;
+      my_nfs.rmdir(entry.path.trim_end_matches('/'))?;
     } else {
-      my_nfs.unlink(Path::new(entry.path.as_str()))?;
+      my_nfs.unlink(entry.path.as_str())?;
     }
 
     Ok(())
@@ -704,14 +632,10 @@ impl JsNfsFileHandle {
   pub async fn get_file(&self) -> Result<JsNfsFile> {
     let path = Path::new(self.handle.path.as_str());
     let type_ = mime_guess::from_path(path).first_raw().unwrap_or(MIME_TYPE_UNKNOWN).into();
-    if let Some(nfs) = &self.handle.nfs {
-      let my_nfs = nfs.write().unwrap();
-      let nfs_stat = my_nfs.stat64(path)?;
-      return Ok(JsNfsFile{handle: self.handle.clone(), size: nfs_stat.nfs_size as i64, type_, last_modified: (nfs_stat.nfs_mtime * 1000) as i64, name: self.name.clone()});
-    }
-    let mut mocks = get_mocks().write().unwrap();
-    let size = mocks.files.entry(self.handle.path.clone()).or_default().len() as i64;
-    Ok(JsNfsFile{handle: self.handle.clone(), size, type_, last_modified: 1658159058723, name: self.name.clone()})
+    let nfs = &self.handle.nfs;
+    let my_nfs = nfs.as_ref().unwrap().write().unwrap();
+    let nfs_stat = my_nfs.stat64(self.handle.path.as_str())?;
+    Ok(JsNfsFile{handle: self.handle.clone(), size: nfs_stat.size as i64, type_, last_modified: (nfs_stat.mtime * 1000) as i64, name: self.name.clone()})
   }
 
   #[napi]
@@ -794,16 +718,13 @@ impl JsNfsFile {
   }
 
   fn nfs_bytes(&self) -> Result<Vec<u8>> {
-    if let Some(nfs) = &self.handle.nfs {
-      let mut my_nfs = nfs.write().unwrap();
-      let nfs_file = my_nfs.open(Path::new(self.handle.path.as_str()), nix::fcntl::OFlag::O_SYNC)?;
-      let nfs_stat = nfs_file.fstat64()?;
-      let buffer = &mut vec![0u8; nfs_stat.nfs_size as usize];
-      let _ = nfs_file.pread_into(nfs_stat.nfs_size, 0, buffer)?;
-      return Ok(buffer.to_vec());
-    }
-    let mut mocks = get_mocks().write().unwrap();
-    Ok(mocks.files.entry(self.handle.path.clone()).or_default().to_vec())
+    let nfs = &self.handle.nfs;
+    let mut my_nfs = nfs.as_ref().unwrap().write().unwrap();
+    let nfs_file = my_nfs.open(self.handle.path.as_str(), nix::fcntl::OFlag::O_SYNC.bits() as u32)?;
+    let nfs_stat = nfs_file.fstat64()?;
+    let buffer = &mut vec![0u8; nfs_stat.size as usize];
+    let _ = nfs_file.pread_into(nfs_stat.size as u32, 0, buffer)?;
+    Ok(buffer.to_vec())
   }
 
   #[napi]
@@ -1028,30 +949,15 @@ impl JsNfsWritableFileStream {
   }
 
   fn nfs_write(&mut self, bytes: &[u8]) -> Result<Undefined> {
-    let post_write_pos = if let Some(nfs) = &self.handle.nfs {
-      let mut my_nfs = nfs.write().unwrap();
-      let nfs_file = my_nfs.open(Path::new(self.handle.path.as_str()), nix::fcntl::OFlag::O_SYNC)?;
-      let offset = match self.position {
-        None => nfs_file.fstat64()?.nfs_size,
-        Some(pos) => pos as u64
-      };
-      let _ = nfs_file.pwrite(bytes, offset)?;
-      (offset as i64) + (bytes.len() as i64)
-    } else {
-      let mut mocks = get_mocks().write().unwrap();
-      let contents = mocks.files.entry(self.handle.path.clone()).or_default();
-      let offset = match self.position {
-        None => contents.len(),
-        Some(pos) => pos as usize
-      };
-      if contents.len() >= offset + bytes.len() {
-        contents.splice(offset..(offset + bytes.len()), bytes.iter().cloned());
-      } else {
-        contents.resize(offset, 0);
-        contents.append(&mut bytes.to_vec());
-      }
-      (offset as i64) + (bytes.len() as i64)
+    let nfs = &self.handle.nfs;
+    let mut my_nfs = nfs.as_ref().unwrap().write().unwrap();
+    let nfs_file = my_nfs.open(self.handle.path.as_str(), nix::fcntl::OFlag::O_SYNC.bits() as u32)?;
+    let offset = match self.position {
+      None => nfs_file.fstat64()?.size,
+      Some(pos) => pos as u64
     };
+    let _ = nfs_file.pwrite(bytes, offset)?;
+    let post_write_pos = (offset as i64) + (bytes.len() as i64);
     self.position = Some(post_write_pos);
     Ok(())
   }
@@ -1087,19 +993,11 @@ impl JsNfsWritableFileStream {
   }
 
   fn nfs_truncate(&mut self, size: i64) -> Result<Undefined> {
-    let size_before = if let Some(nfs) = &self.handle.nfs {
-      let my_nfs = nfs.write().unwrap();
-      let path = Path::new(self.handle.path.as_str());
-      let nfs_stat = my_nfs.stat64(path)?;
-      my_nfs.truncate(path, size as u64)?;
-      nfs_stat.nfs_size as i64
-    } else {
-      let mut mocks = get_mocks().write().unwrap();
-      let contents = mocks.files.entry(self.handle.path.clone()).or_default();
-      let size_before = contents.len() as i64;
-      contents.resize(size as usize, 0);
-      size_before
-    };
+    let nfs = &self.handle.nfs;
+    let my_nfs = nfs.as_ref().unwrap().write().unwrap();
+    let nfs_stat = my_nfs.stat64(self.handle.path.as_str())?;
+    my_nfs.truncate(self.handle.path.as_str(), size as u64)?;
+    let size_before = nfs_stat.size as i64;
     if let Some(position) = self.position {
       if position > size || position == size_before {
         self.position = Some(size);
