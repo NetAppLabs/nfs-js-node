@@ -56,7 +56,7 @@ impl NFS for NFS3 {
 
     fn lchmod(&self, path: &str, mode: u32) -> Result<()> {
         let my_nfs = self.nfs.write().unwrap();
-        my_nfs.lchmod(Path::new(path), Mode::from_bits_truncate(mode as u16))
+        my_nfs.lchmod(Path::new(path), Mode::from_bits_truncate((mode as u16).into()))
     }
 
     fn opendir(&mut self, path: &str) -> Result<Box<dyn NFSDirectory>> {
@@ -72,7 +72,7 @@ impl NFS for NFS3 {
 
     fn create(&mut self, path: &str, flags: u32, mode: u32) -> Result<Box<dyn NFSFile>> {
         let mut my_nfs = self.nfs.write().unwrap();
-        let file = my_nfs.create(Path::new(path), OFlag::from_bits_truncate(flags as i32), Mode::from_bits_truncate(mode as u16))?;
+        let file = my_nfs.create(Path::new(path), OFlag::from_bits_truncate(flags as i32), Mode::from_bits_truncate((mode as u16).into()))?;
         Ok(Box::new(NFSFile3{file}))
     }
 

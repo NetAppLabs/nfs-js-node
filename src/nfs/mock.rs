@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use bytes::BufMut;
 
-use super::{NFS, NFSStat64, NFSDirectory, NFSFile, NFSDirEntry, Result, Time};
+use super::{NFS, NFSStat64, NFSDirectory, NFSFile, NFSDirEntry, NFSEntryType, Result, Time};
 use crate::get_parent_path_and_name;
 
 #[derive(Debug)]
@@ -157,7 +157,7 @@ impl Iterator for NFSDirectory3 {
                         entries.push(NFSDirEntry{
                         path: name,
                         inode: Default::default(),
-                        d_type: crate::NFSEntryType::File,
+                        d_type: NFSEntryType::File,
                         mode,
                         size: content.len() as u64,
                         used: Default::default(),
@@ -184,7 +184,7 @@ impl Iterator for NFSDirectory3 {
                     entries.push(NFSDirEntry{
                         path: name,
                         inode: Default::default(),
-                        d_type: crate::NFSEntryType::Directory,
+                        d_type: NFSEntryType::Directory,
                         mode,
                         size: Default::default(),
                         used: Default::default(),
@@ -307,10 +307,10 @@ mod tests {
             }
         }
         let expected_entries = vec![
-            ("3".to_string(), crate::NFSEntryType::File),
-            ("annar".to_string(), crate::NFSEntryType::File),
-            ("quatre".to_string(), crate::NFSEntryType::Directory),
-            ("first".to_string(), crate::NFSEntryType::Directory),
+            ("3".to_string(), NFSEntryType::File),
+            ("annar".to_string(), NFSEntryType::File),
+            ("quatre".to_string(), NFSEntryType::Directory),
+            ("first".to_string(), NFSEntryType::Directory),
         ];
         assert_eq!(entries, expected_entries);
         let res = nfs.opendir("/first/");
@@ -324,7 +324,7 @@ mod tests {
             }
         }
         let expected_subentries = vec![
-            ("comment".to_string(), crate::NFSEntryType::File),
+            ("comment".to_string(), NFSEntryType::File),
         ];
         assert_eq!(subentries, expected_subentries);
     }

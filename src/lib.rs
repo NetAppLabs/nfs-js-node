@@ -7,7 +7,7 @@ use send_wrapper::SendWrapper;
 use std::{path::Path, sync::{Arc, RwLock, RwLockWriteGuard}};
 
 mod nfs;
-use nfs::*;
+use nfs::{NFS, NFSEntryType};
 
 /*
 
@@ -471,7 +471,7 @@ impl JsNfsDirectoryHandle {
     for entry in self.nfs_entries()? {
       if entry.name == name {
         if entry.kind != KIND_DIRECTORY {
-          return Err(Error::new(Status::GenericFailure, "The path supplied exists, but was not an entry of requested type.".into()));
+          return Err(Error::new(Status::GenericFailure, "The path supplied exists, but was not an entry of requested type.".to_string()));
         }
         return Ok(entry.into());
       }
@@ -491,7 +491,7 @@ impl JsNfsDirectoryHandle {
     for entry in self.nfs_entries()? {
       if entry.name == name {
         if entry.kind != KIND_FILE {
-          return Err(Error::new(Status::GenericFailure, "The path supplied exists, but was not an entry of requested type.".into()));
+          return Err(Error::new(Status::GenericFailure, "The path supplied exists, but was not an entry of requested type.".to_string()));
         }
         return Ok(entry.into());
       }
@@ -794,7 +794,7 @@ impl JsNfsWritableFileStream {
     match input.get_type()? {
       ValueType::String => self.parse_string(input.coerce_to_string()?, None),
       ValueType::Object => self.parse_write_input_object(input.coerce_to_object()?),
-      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported type".into()))
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()))
     }
   }
 
@@ -816,7 +816,7 @@ impl JsNfsWritableFileStream {
       _ if is_typed_array(&obj)? => self.parse_typed_array(obj, None),
       _ if is_data_view(&obj)? => self.parse_data_view(obj, None),
       _ if is_array_buffer(&obj)? => self.parse_array_buffer(obj, None),
-      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported type".into()))
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported type".to_string()))
     }
   }
 
@@ -868,7 +868,7 @@ impl JsNfsWritableFileStream {
     match data.get_type()? {
       ValueType::String => self.parse_string(data.coerce_to_string()?, position),
       ValueType::Object => self.parse_wrapped_data_object(data.coerce_to_object()?, position),
-      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported data type".into())),
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported data type".to_string())),
     }
   }
 
@@ -879,7 +879,7 @@ impl JsNfsWritableFileStream {
       _ if is_typed_array(&data)? => self.parse_typed_array(data, position),
       _ if is_data_view(&data)? => self.parse_data_view(data, position),
       _ if is_array_buffer(&data)? => self.parse_array_buffer(data, position),
-      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported data type".into()))
+      _ => Err(Error::new(Status::InvalidArg, "Writing unsupported data type".to_string()))
     }
   }
 
@@ -1030,7 +1030,7 @@ impl JsNfsWritableFileStream {
   #[napi(ts_return_type="WritableStreamDefaultWriter")]
   pub fn get_writer(&'static mut self, env: Env) -> Result<Object> {
     if self.locked {
-      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is locked".into()));
+      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is locked".to_string()));
     }
     let global = env.get_global()?;
     let sink = JsNfsWritableStreamSink{stream: self, closed: false}.into_instance(env)?;
@@ -1130,7 +1130,7 @@ impl JsNfsWritableStreamSink {
   #[napi(ts_args_type="controller?: WritableStreamDefaultController", ts_return_type="Promise<void>")]
   pub fn close(&mut self) -> Result<()> {
     if self.closed {
-      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".into()));
+      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".to_string()));
     }
     self.close_stream();
     Ok(())
@@ -1139,11 +1139,11 @@ impl JsNfsWritableStreamSink {
   #[napi(ts_return_type="Promise<void>")]
   pub fn write(&'static mut self, #[napi(ts_arg_type="any")] chunk: Unknown, #[napi(ts_arg_type="WritableStreamDefaultController")] _controller: Option<Unknown>) -> Result<AsyncTask<JsNfsWritableStreamWrite>> {
     if self.closed {
-      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".into()));
+      return Err(Error::new(Status::GenericFailure, "Invalid state: WritableStream is closed".to_string()));
     }
     let options = self.stream.parse_write_input(chunk).unwrap_or_default();
     if options.type_ != WRITE_TYPE_WRITE {
-      return Err(Error::new(Status::InvalidArg, "Invalid chunk".into()));
+      return Err(Error::new(Status::InvalidArg, "Invalid chunk".to_string()));
     }
     Ok(AsyncTask::new(JsNfsWritableStreamWrite{sink: self, chunk: options.data.unwrap_or_default()}))
   }
