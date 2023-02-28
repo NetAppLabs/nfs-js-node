@@ -35,13 +35,16 @@ jobs:
         mkdir -p $HOME/.ssh
         echo "${{ secrets.SSH_KEY_FOR_LIBNFS_SYS }}" > $HOME/.ssh/libnfs-sys
         echo "${{ secrets.SSH_KEY_FOR_LIBNFS_RS }}" > $HOME/.ssh/libnfs-rs
-        chmod 600 $HOME/.ssh/libnfs*
+        echo "${{ secrets.SSH_KEY_FOR_NFS_RS }}" > $HOME/.ssh/nfs-rs
+        chmod 600 $HOME/.ssh/libnfs* $HOME/.ssh/nfs-rs
     - name: Checkout submodules
       run: |
         ln -sf $HOME/.ssh/libnfs-sys $HOME/.ssh/id_rsa
         git clone git@github.com:NetAppLabs/libnfs-sys.git
         ln -sf $HOME/.ssh/libnfs-rs $HOME/.ssh/id_rsa
         git clone git@github.com:NetAppLabs/libnfs-rs.git
+        ln -sf $HOME/.ssh/nfs-rs $HOME/.ssh/id_rsa
+        git clone git@github.com:NetAppLabs/nfs-rs.git
         rm $HOME/.ssh/id_rsa
     - name: Install non-rust non-node dependencies
       run: ./deps.sh

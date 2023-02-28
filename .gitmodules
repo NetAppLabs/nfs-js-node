@@ -4,3 +4,6 @@
 [submodule "libnfs-rs"]
 	path = libnfs-rs
 	url = git@github.com:NetAppLabs/libnfs-rs.git
+[submodule "nfs-rs"]
+	path = nfs-rs
+	url = git@github.com:NetAppLabs/nfs-rs.git

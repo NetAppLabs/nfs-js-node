@@ -24,3 +24,6 @@ trap kill_go_nfs EXIT
 
 echo "Test using NFS"
 yarn test
+
+echo "Test using NFS via nfs-rs (pure rust NFS implementation)"
+TEST_USING_PURE_RUST=1 yarn test
