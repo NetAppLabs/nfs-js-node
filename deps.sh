@@ -9,6 +9,9 @@ git submodule update --init
 if ! command -v automake 2>&1 >/dev/null ; then
     if command -v brew 2>&1 >/dev/null ; then
         brew install automake
+    elif command -v apt-get 2>&1 >/dev/null ; then
+        sudo apt-get update
+        sudo apt-get install -y automake
     else
         echo "please install automake"
     fi
@@ -17,6 +20,9 @@ fi
 if ! command -v libtool 2>&1 >/dev/null ; then
     if command -v brew 2>&1 >/dev/null ; then
         brew install libtool
+    elif command -v apt-get 2>&1 >/dev/null ; then
+        sudo apt-get update
+        sudo apt-get install -y libtool
     else
         echo "please install libtool"
     fi
