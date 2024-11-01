@@ -24,6 +24,8 @@ if [ "${OS}" == "Darwin" ]; then
         fi
     fi
 elif [ "${OS}" == "Linux" ]; then
+    sudo apt-get update
+    sudo apt-get -y install libc-dev
     if ! command -v libtoolize 2>&1 >/dev/null ; then
         if command -v apt-get 2>&1 >/dev/null ; then
             sudo apt-get update
