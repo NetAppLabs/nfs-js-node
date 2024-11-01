@@ -15,16 +15,25 @@ if ! command -v automake 2>&1 >/dev/null ; then
     fi
 fi
 
-if ! command -v libtool 2>&1 >/dev/null ; then
-    if command -v brew 2>&1 >/dev/null ; then
-        brew install libtool
-    elif command -v apt-get 2>&1 >/dev/null ; then
-        sudo apt-get update
-        sudo apt-get install -y libtool
-    else
-        echo "please install libtool"
+
+OS=`uname -s`
+if [ "${OS}" == "Darwin" ]; then
+    if ! command -v glibtool 2>&1 >/dev/null ; then
+        if command -v brew 2>&1 >/dev/null ; then
+            brew install libtool
+        fi
+    fi
+elif [ "${OS}" == "Linux" ]; then
+    if ! command -v libtoolize 2>&1 >/dev/null ; then
+        if command -v apt-get 2>&1 >/dev/null ; then
+            sudo apt-get update
+            sudo apt-get install -y libtool
+        else
+            echo "please install libtool"
+        fi
     fi
 fi
+
 
 if [ ! -d libnfs ]; then
     git clone https://github.com/sahlberg/libnfs.git libnfs
