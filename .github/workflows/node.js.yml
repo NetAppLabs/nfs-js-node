@@ -28,7 +28,7 @@ jobs:
     - name: Setup go
       uses: actions/setup-go@v3
       with:
-        go-version: '1.19'
+        go-version: '1.23'
         check-latest: true
     - name: Setup SSH
       run: |
@@ -58,7 +58,7 @@ jobs:
     - name: Build
       run: yarn build
     - name: Test
-      run: ./test.sh
+      run: yarn test
     - name: Upload node module
       uses: actions/upload-artifact@v3
       with:
