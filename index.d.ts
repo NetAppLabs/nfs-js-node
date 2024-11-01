@@ -18,23 +18,23 @@ export interface JsNfsRemoveOptions {
 export interface JsNfsCreateWritableOptions {
   keepExistingData: boolean
 }
-export class JsNfsDirectoryHandleEntries {
+export declare class JsNfsDirectoryHandleEntries {
   [Symbol.asyncIterator]: AsyncIterableIterator<[string, JsNfsDirectoryHandle | JsNfsFileHandle]>
 }
-export class JsNfsDirectoryHandleKeys {
+export declare class JsNfsDirectoryHandleKeys {
   [Symbol.asyncIterator]: AsyncIterableIterator<string>
 }
-export class JsNfsDirectoryHandleValues {
+export declare class JsNfsDirectoryHandleValues {
   [Symbol.asyncIterator]: AsyncIterableIterator<JsNfsDirectoryHandle | JsNfsFileHandle>
 }
-export class JsNfsHandle {
+export declare class JsNfsHandle {
   readonly kind: 'directory' | 'file'
   readonly name: string
   isSameEntry(other: JsNfsHandle): boolean
   queryPermission(perm: JsNfsHandlePermissionDescriptor): Promise<string>
   requestPermission(perm: JsNfsHandlePermissionDescriptor): Promise<string>
 }
-export class JsNfsDirectoryHandle {
+export declare class JsNfsDirectoryHandle {
   [Symbol.asyncIterator]: JsNfsDirectoryHandle['entries']
   readonly kind: 'directory'
   readonly name: string
@@ -51,7 +51,7 @@ export class JsNfsDirectoryHandle {
   removeEntry(name: string, options?: JsNfsRemoveOptions): Promise<void>
   resolve(possibleDescendant: JsNfsHandle): Promise<Array<string> | null>
 }
-export class JsNfsFileHandle {
+export declare class JsNfsFileHandle {
   readonly kind: 'file'
   readonly name: string
   toHandle(): JsNfsHandle
@@ -61,7 +61,7 @@ export class JsNfsFileHandle {
   getFile(): Promise<File>
   createWritable(options?: JsNfsCreateWritableOptions): Promise<JsNfsWritableFileStream>
 }
-export class JsNfsFile {
+export declare class JsNfsFile {
   readonly size: number
   readonly type: string
   readonly lastModified: number
@@ -71,13 +71,27 @@ export class JsNfsFile {
   stream(): ReadableStream<Uint8Array>
   text(): Promise<string>
 }
-export class JsNfsReadableStreamSource {
+export declare class JsNfsReadableStreamSource {
   readonly type: 'bytes'
   pull(controller: ReadableByteStreamController): void
 }
-export class JsNfsWritableFileStream {
+export declare class JsNfsWritableFileStream {
   readonly locked: boolean
-  write(data: ArrayBuffer | TypedArray | DataView | Blob | String | string | {type: 'write' | 'seek' | 'truncate', data?: ArrayBuffer | TypedArray | DataView | Blob | String | string, position?: number, size?: number}): Promise<void>
+  write(
+    data:
+      | ArrayBuffer
+      | TypedArray
+      | DataView
+      | Blob
+      | String
+      | string
+      | {
+          type: 'write' | 'seek' | 'truncate'
+          data?: ArrayBuffer | TypedArray | DataView | Blob | String | string
+          position?: number
+          size?: number
+        },
+  ): Promise<void>
   seek(position: number): Promise<void>
   truncate(size: number): Promise<void>
   close(): Promise<void>
@@ -85,7 +99,7 @@ export class JsNfsWritableFileStream {
   releaseLock(): void
   getWriter(): WritableStreamDefaultWriter
 }
-export class JsNfsWritableStreamSink {
+export declare class JsNfsWritableStreamSink {
   start(controller?: WritableStreamDefaultController): Promise<void>
   abort(reason: string): Promise<string>
   close(controller?: WritableStreamDefaultController): Promise<void>

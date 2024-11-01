@@ -91,12 +91,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@napi-rs/cli@npm:^2.9.0":
-  version: 2.9.0
-  resolution: "@napi-rs/cli@npm:2.9.0"
+"@napi-rs/cli@npm:^2.18.4":
+  version: 2.18.4
+  resolution: "@napi-rs/cli@npm:2.18.4"
   bin:
     napi: scripts/index.js
-  checksum: 2a7dfbf5e12ed72c556a5cfa18028137d8f32ba132218f5d9096263b3512ac9e831090ef2937806d2dd4ca35a44ba6fd22d5f30b7d46c06fa5c0945def507609
+  checksum: f243e5c822a4a9103fba49193eda2023cb08c1ef9c0b521d8a0ece860ef13f9f2b4d5ac106c3d9e5792d22ed2196213e336cf59d9c2ee81241ac4b4b8ca6ea30
   languageName: node
   linkType: hard
 
@@ -459,6 +459,29 @@ __metadata:
   checksum: 8f104eda321cd6c613daf284fbebbd32b149d4213d137b0ce1caec7a1334c9f46c82ed64aff1243b712ac8c13f67ac344c996cd36d21fbb15032c24d9897a64a
   languageName: node
   linkType: hard
+
+"@wasmin/nfs-js-node@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@wasmin/nfs-js-node@workspace:."
+  dependencies:
+    "@napi-rs/cli": ^2.18.4
+    "@swc-node/register": ^1.5.1
+    "@typescript-eslint/eslint-plugin": ^5.27.1
+    "@typescript-eslint/parser": ^5.27.1
+    ava: ^4.3.0
+    benny: ^3.7.1
+    chalk: ^5.0.1
+    eslint: ^8.17.0
+    eslint-config-prettier: ^8.5.0
+    eslint-plugin-import: ^2.26.0
+    eslint-plugin-prettier: ^4.0.0
+    husky: ^8.0.1
+    lint-staged: ^13.0.1
+    npm-run-all: ^4.1.5
+    prettier: ^2.6.2
+    typescript: ^4.7.3
+  languageName: unknown
+  linkType: soft
 
 "abbrev@npm:1":
   version: 1.1.1
@@ -2958,29 +2981,6 @@ __metadata:
   checksum: b8ffeb1e262eff7968fc90a2b6767b04cfd9842582a9d0ece0af7049537266e7b2506dfb1d107a32f06dd849ab2aea834d5830f7f4d0e5cb7d36e1ae55d021d9
   languageName: node
   linkType: hard
-
-"nfs-js@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "nfs-js@workspace:."
-  dependencies:
-    "@napi-rs/cli": ^2.9.0
-    "@swc-node/register": ^1.5.1
-    "@typescript-eslint/eslint-plugin": ^5.27.1
-    "@typescript-eslint/parser": ^5.27.1
-    ava: ^4.3.0
-    benny: ^3.7.1
-    chalk: ^5.0.1
-    eslint: ^8.17.0
-    eslint-config-prettier: ^8.5.0
-    eslint-plugin-import: ^2.26.0
-    eslint-plugin-prettier: ^4.0.0
-    husky: ^8.0.1
-    lint-staged: ^13.0.1
-    npm-run-all: ^4.1.5
-    prettier: ^2.6.2
-    typescript: ^4.7.3
-  languageName: unknown
-  linkType: soft
 
 "nice-try@npm:^1.0.4":
   version: 1.0.5

@@ -2,13 +2,16 @@
 
 set -e
 
+NFS_DIR="/tmp/nfs-js"
+mkdir -p ${NFS_DIR}
+
 NFS_PORT=20490
-export NFS_URL="nfs://127.0.0.1/tmp/nfs-js/?nfsport=$NFS_PORT&mountport=$NFS_PORT&auto-traverse-mounts=0"
+export NFS_URL="nfs://127.0.0.1${NFS_DIR}?nfsport=$NFS_PORT&mountport=$NFS_PORT&auto-traverse-mounts=0"
 
 echo "Test using mocks"
-TEST_USING_MOCKS=1 yarn test
+TEST_USING_MOCKS=1 yarn test-ava
 
-/tmp/go-nfs/osnfs /tmp/nfs-js $NFS_PORT &> /tmp/go-nfs/osnfs.log &
+./go-nfs/osnfs ${NFS_DIR} $NFS_PORT &> ./go-nfs/osnfs.log &
 GO_NFS_PID=$!
 
 function kill_go_nfs() {
@@ -22,8 +25,8 @@ function kill_go_nfs() {
 
 trap kill_go_nfs EXIT
 
-echo "Test using NFS"
-yarn test
+echo "Test using NFS via libnfs"
+yarn test-ava
 
 echo "Test using NFS via nfs-rs (pure rust NFS implementation)"
-TEST_USING_PURE_RUST=1 yarn test
+TEST_USING_PURE_RUST=1 yarn test-ava

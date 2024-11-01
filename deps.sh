@@ -2,27 +2,44 @@
 
 set -e
 
-sudo ./setup-nfs.sh $(id -u) $(id -g)
+./setup-nfs.sh $(id -u) $(id -g)
 
-if `brew -v &> /dev/null`; then
-    brew install automake
+if ! command -v automake 2>&1 >/dev/null ; then
+    if ! command -v brew 2>&1 >/dev/null ; then
+        brew install automake
+    else
+        echo "please install automake"
+    fi
 fi
 
-if [ ! -f /usr/local/lib/libnfs.a ]; then
-    if [ -f /usr/lib/libnfs.a ]; then
-        ln -s /usr/lib/libnfs.a /usr/local/lib/libnfs.a
+if ! command -v libtool 2>&1 >/dev/null ; then
+    if ! command -v brew 2>&1 >/dev/null ; then
+        brew install libtool
     else
-        git clone https://github.com/sahlberg/libnfs.git /tmp/libnfs
-        pushd /tmp/libnfs
+        echo "please install libtool"
+    fi
+fi
+
+if [ ! -d libnfs ]; then
+    git clone https://github.com/sahlberg/libnfs.git libnfs
+    if [ ! -f libnfs/local-install/lib/libnfs.a ]; then
+        pushd libnfs
+        CURDIR="$(pwd)"
+        INSTALL_DIR="${CURDIR}/local-install"
+        mkdir -p "${INSTALL_DIR}"
         ./bootstrap
-        CFLAGS=-fPIC ./configure
+        ./configure --without-libkrb5 --prefix="${INSTALL_DIR}" --exec-prefix="${INSTALL_DIR}" CFLAGS='-fPIC -Wno-cast-align'
         make
-        sudo make install
+        make install
         popd
     fi
 fi
 
-git clone https://github.com/willscott/go-nfs.git /tmp/go-nfs
-pushd /tmp/go-nfs
-go build ./example/osnfs
-popd
+if [ ! -d go-nfs ]; then
+    git clone https://github.com/willscott/go-nfs.git go-nfs
+    if [ ! -f go-nfs/osnfs ]; then
+        pushd go-nfs
+        go build ./example/osnfs
+        popd
+    fi
+fi

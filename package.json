@@ -1,10 +1,10 @@
 {
-  "name": "nfs-js",
+  "name": "@wasmin/nfs-js-node",
   "version": "1.0.0",
   "description": "nfs js",
   "main": "indax.js",
-  "repository": "git@github.com:napi-rs/package-template.git",
-  "license": "MIT",
+  "repository": "git@github.com:NetAppLabs/nfs-js-node.git",
+  "license": "Apache-2.0",
   "keywords": [
     "napi-rs",
     "NAPI",
@@ -46,7 +46,8 @@
   "scripts": {
     "artifacts": "napi artifacts",
     "bench": "node -r @swc-node/register benchmark/bench.ts",
-    "build": "napi build --platform --release --pipe \"prettier -w\"",
+    "build": "./build.sh",
+    "build-napi": "napi build --platform --release --pipe \"prettier -w\"",
     "build:darwin:x64": "napi build --platform --release --target x86_64-apple-darwin --pipe \"prettier -w\"",
     "build:darwin:arm64": "napi build --platform --release --target aarch64-apple-darwin --pipe \"prettier -w\"",
     "build:linux:x64": "napi build --platform --release --target x86_64-unknown-linux-musl --pipe \"prettier -w\"",
@@ -57,11 +58,12 @@
     "format:rs": "cargo fmt",
     "lint": "eslint . -c ./.eslintrc.yml",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava",
+    "test": "./test.sh",
+    "test-ava": "ava",
     "version": "napi version"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^2.9.0",
+    "@napi-rs/cli": "^2.18.4",
     "@swc-node/register": "^1.5.1",
     "@typescript-eslint/eslint-plugin": "^5.27.1",
     "@typescript-eslint/parser": "^5.27.1",
