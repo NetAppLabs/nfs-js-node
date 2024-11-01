@@ -2,10 +2,12 @@
 
 set -e
 
+git submodule update --init
+
 ./setup-nfs.sh $(id -u) $(id -g)
 
 if ! command -v automake 2>&1 >/dev/null ; then
-    if ! command -v brew 2>&1 >/dev/null ; then
+    if command -v brew 2>&1 >/dev/null ; then
         brew install automake
     else
         echo "please install automake"
@@ -13,7 +15,7 @@ if ! command -v automake 2>&1 >/dev/null ; then
 fi
 
 if ! command -v libtool 2>&1 >/dev/null ; then
-    if ! command -v brew 2>&1 >/dev/null ; then
+    if command -v brew 2>&1 >/dev/null ; then
         brew install libtool
     else
         echo "please install libtool"
