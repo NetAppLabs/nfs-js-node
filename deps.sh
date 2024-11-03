@@ -4,6 +4,11 @@ set -e
 
 git submodule update --init
 
+
+if ! command -v cargo 2>&1 >/dev/null ; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+fi
+
 if ! command -v automake 2>&1 >/dev/null ; then
     if command -v brew 2>&1 >/dev/null ; then
         brew install automake
