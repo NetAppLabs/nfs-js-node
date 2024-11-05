@@ -2,6 +2,17 @@
 
 set -e
 
+if ! command -v git 2>&1 >/dev/null ; then
+    if command -v brew 2>&1 >/dev/null ; then
+        brew install git
+    elif command -v apt-get 2>&1 >/dev/null ; then
+        sudo apt-get update
+        sudo apt-get install -y git-all
+    else
+        echo "please install git"
+    fi
+fi
+
 git submodule update --init
 
 
@@ -20,7 +31,6 @@ if ! command -v automake 2>&1 >/dev/null ; then
     fi
 fi
 
-
 OS=`uname -s`
 if [ "${OS}" == "Darwin" ]; then
     if ! command -v glibtool 2>&1 >/dev/null ; then
@@ -29,8 +39,36 @@ if [ "${OS}" == "Darwin" ]; then
         fi
     fi
 elif [ "${OS}" == "Linux" ]; then
-    sudo apt-get update
-    sudo apt-get -y install libc-dev
+    if ! command -v make 2>&1 >/dev/null ; then
+        if command -v apt-get 2>&1 >/dev/null ; then
+            sudo apt-get update
+            sudo apt-get install -y make
+        else
+            echo "please install make"
+        fi
+    fi
+    if ! command -v node 2>&1 >/dev/null ; then
+        if command -v apt-get 2>&1 >/dev/null ; then
+            sudo apt-get update
+            curl -sL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup.sh
+            chmod 775 /tmp/nodesource_setup.sh
+            sudo /tmp/nodesource_setup.sh
+            sudo apt-get install nodejs -y
+        else
+            echo "please install node"
+        fi
+    fi
+    if ! command -v clang 2>&1 >/dev/null ; then
+        if command -v apt-get 2>&1 >/dev/null ; then
+            sudo apt-get update
+            sudo apt-get install -y clang
+        else
+            echo "please install clang"
+        fi
+    fi
+    if ! command -v yarn 2>&1 >/dev/null ; then
+        sudo npm install -g yarn
+    fi
     if ! command -v libtoolize 2>&1 >/dev/null ; then
         if command -v apt-get 2>&1 >/dev/null ; then
             sudo apt-get update
