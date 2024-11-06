@@ -59,7 +59,8 @@ impl NFS for NFS3 {
 
     fn opendir(&mut self, path: &str) -> Result<Box<dyn NFSDirectory>> {
         let mount = self.mount.read().unwrap();
-        let fh = mount.lookup_path(path)?;
+        let obj_res = mount.lookup_path(path)?;
+        let fh = obj_res.fh;
         let attr = mount.getattr(&fh)?;
         if attr.type_ != NFS_ENTRY_TYPE_DIR {
             return Err(Error::new(std::io::ErrorKind::InvalidData, "not a directory"));
@@ -74,7 +75,8 @@ impl NFS for NFS3 {
 
     fn create(&mut self, path: &str, _flags: u32, mode: u32) -> Result<Box<dyn NFSFile>> {
         let mount = self.mount.write().unwrap();
-        let fh = mount.create_path(path, mode)?;
+        let obj_res = mount.create_path(path, mode)?;
+        let fh = obj_res.fh;
         Ok(Box::new(NFSFile3{nfs: self, fh}))
     }
 
@@ -90,7 +92,8 @@ impl NFS for NFS3 {
 
     fn open(&mut self, path: &str, _flags: u32) -> Result<Box<dyn NFSFile>> {
         let mount = self.mount.write().unwrap();
-        let fh = mount.lookup_path(path)?;
+        let obj_res = mount.lookup_path(path)?;
+        let fh = obj_res.fh;
         let attr = mount.getattr(&fh)?;
         if attr.type_ == NFS_ENTRY_TYPE_DIR {
             return Err(Error::new(std::io::ErrorKind::InvalidData, "is a directory"));
