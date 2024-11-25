@@ -46,7 +46,9 @@
   "scripts": {
     "artifacts": "napi artifacts",
     "bench": "node -r @swc-node/register benchmark/bench.ts",
-    "build": "./build.sh",
+    "build": "npm run build-sh && npm run build-tsc",
+    "build-tsc": "npx tsc -p .",
+    "build-sh": "./build.sh",
     "build-napi": "napi build --platform --release --pipe \"prettier -w\"",
     "build:darwin:x64": "napi build --platform --release --target x86_64-apple-darwin --pipe \"prettier -w\"",
     "build:darwin:arm64": "napi build --platform --release --target aarch64-apple-darwin --pipe \"prettier -w\"",
@@ -65,6 +67,7 @@
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@swc-node/register": "^1.5.1",
+    "@types/node": "^22.9.3",
     "@typescript-eslint/eslint-plugin": "^5.27.1",
     "@typescript-eslint/parser": "^5.27.1",
     "ava": "^4.3.0",
@@ -78,7 +81,7 @@
     "lint-staged": "^13.0.1",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.6.2",
-    "typescript": "^4.7.3"
+    "typescript": "^5.7.2"
   },
   "lint-staged": {
     "*.@(js|ts|tsx)": [

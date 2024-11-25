@@ -1,5 +1,6 @@
 import test from 'ava'
 
+import process from 'node:process';
 import { NfsDirectoryHandle, NfsFileHandle } from '../indax'
 
 const nfsURL = process.env.NFS_URL || 'nfs://127.0.0.1/Users/Shared/nfs/';

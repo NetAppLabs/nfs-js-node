@@ -4,8 +4,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const ava_1 = __importDefault(require("ava"));
+const node_process_1 = __importDefault(require("node:process"));
 const indax_1 = require("../indax");
-const nfsURL = process.env.NFS_URL || 'nfs://127.0.0.1/Users/Shared/nfs/';
+const nfsURL = node_process_1.default.env.NFS_URL || 'nfs://127.0.0.1/Users/Shared/nfs/';
 function getRootHandle() {
     return new indax_1.NfsDirectoryHandle(nfsURL);
 }
@@ -141,7 +142,7 @@ ava_1.default.serial('should iterate through directory', async (t) => {
     ]);
     let i = 0;
     for await (const [key, value] of rootHandle) {
-        if (i > expectedEntries.size) {
+        if (i >= expectedEntries.size) {
             t.fail('iterated past expected number of entries');
             break;
         }
@@ -164,7 +165,7 @@ ava_1.default.serial('should iterate through subdirectory', async (t) => {
     ];
     let i = 0;
     for await (const [key, value] of dirHandle) {
-        if (i > expectedEntries.length) {
+        if (i >= expectedEntries.length) {
             t.fail('iterated past expected number of entries');
             break;
         }
@@ -182,7 +183,7 @@ ava_1.default.serial('should iterate through subsubdirectory', async (t) => {
     const expectedEntries = [];
     let i = 0;
     for await (const [_key, _value] of subdirHandle) {
-        if (i > expectedEntries.length) {
+        if (i >= expectedEntries.length) {
             t.fail('iterated past expected number of entries');
             break;
         }
@@ -201,7 +202,7 @@ ava_1.default.serial('should iterate through entries', async (t) => {
     ]);
     let i = 0;
     for await (const [key, value] of rootHandle.entries()) {
-        if (i > expectedEntries.size) {
+        if (i >= expectedEntries.size) {
             t.fail('iterated past expected number of entries');
             break;
         }
@@ -224,7 +225,7 @@ ava_1.default.serial('should iterate through subdirectory entries', async (t) =>
     ];
     let i = 0;
     for await (const [key, value] of dirHandle.entries()) {
-        if (i > expectedEntries.length) {
+        if (i >= expectedEntries.length) {
             t.fail('iterated past expected number of entries');
             break;
         }
@@ -240,7 +241,7 @@ ava_1.default.serial('should iterate through keys', async (t) => {
     const expectedKeys = new Set(['3', 'annar', 'quatre', 'first']);
     let i = 0;
     for await (const key of rootHandle.keys()) {
-        if (i > expectedKeys.size) {
+        if (i >= expectedKeys.size) {
             t.fail('iterated past expected number of keys');
             break;
         }
@@ -255,7 +256,7 @@ ava_1.default.serial('should iterate through subdirectory keys', async (t) => {
     const expectedKeys = ['points'];
     let i = 0;
     for await (const key of dirHandle.keys()) {
-        if (i > expectedKeys.length) {
+        if (i >= expectedKeys.length) {
             t.fail('iterated past expected number of keys');
             break;
         }
@@ -273,7 +274,7 @@ ava_1.default.serial('should iterate through values', async (t) => {
     ]);
     let i = 0;
     for await (const { kind, name } of rootHandle.values()) {
-        if (i > expectedValues.size) {
+        if (i >= expectedValues.size) {
             t.fail('iterated past expected number of values');
             break;
         }
@@ -295,7 +296,7 @@ ava_1.default.serial('should iterate through subdirectory values', async (t) => 
     ];
     let i = 0;
     for await (const { kind, name } of dirHandle.values()) {
-        if (i > expectedValues.length) {
+        if (i >= expectedValues.length) {
             t.fail('iterated past expected number of values');
             break;
         }
@@ -315,7 +316,7 @@ ava_1.default.serial('should iterate through values via deprecated getEntries', 
     ]);
     let i = 0;
     for await (const { kind, name } of rootHandle.getEntries()) {
-        if (i > expectedValues.size) {
+        if (i >= expectedValues.size) {
             t.fail('iterated past expected number of values');
             break;
         }
@@ -337,7 +338,7 @@ ava_1.default.serial('should iterate through subdirectory values via deprecated 
     ];
     let i = 0;
     for await (const { kind, name } of dirHandle.getEntries()) {
-        if (i > expectedValues.length) {
+        if (i >= expectedValues.length) {
             t.fail('iterated past expected number of values');
             break;
         }
@@ -1158,7 +1159,7 @@ ava_1.default.serial('should return error when getting writer for locked writabl
 });
 ava_1.default.serial('should handle getting directories concurrently', async (t) => {
     // @ts-ignore
-    const count = process.env.TEST_USING_MOCKS ? 1000 : 10;
+    const count = node_process_1.default.env.TEST_USING_MOCKS ? 1000 : 10;
     const rootHandle = getRootHandle();
     for (let i = 0; i < count; i++) {
         const [first, quatre] = await Promise.all([
@@ -1173,7 +1174,7 @@ ava_1.default.serial('should handle getting directories concurrently', async (t)
 });
 ava_1.default.serial('should handle requesting permissions concurrently', async (t) => {
     // @ts-ignore
-    const count = process.env.TEST_USING_MOCKS ? 1000 : 10;
+    const count = node_process_1.default.env.TEST_USING_MOCKS ? 1000 : 10;
     const rootHandle = getRootHandle();
     const [first, quatre] = await Promise.all([
         rootHandle.getDirectoryHandle('first'),
@@ -1190,7 +1191,7 @@ ava_1.default.serial('should handle requesting permissions concurrently', async 
 });
 ava_1.default.serial('should handle resolving concurrently', async (t) => {
     // @ts-ignore
-    const count = process.env.TEST_USING_MOCKS ? 1000 : 10;
+    const count = node_process_1.default.env.TEST_USING_MOCKS ? 1000 : 10;
     const rootHandle = getRootHandle();
     for (let i = 0; i < count; i++) {
         const [first, quatre] = await Promise.all([
