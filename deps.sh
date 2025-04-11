@@ -82,24 +82,42 @@ fi
 
 if [ ! -d libnfs ]; then
     git clone https://github.com/sahlberg/libnfs.git libnfs
-    if [ ! -f libnfs/local-install/lib/libnfs.a ]; then
-        pushd libnfs
-        CURDIR="$(pwd)"
-        INSTALL_DIR="${CURDIR}/local-install"
-        mkdir -p "${INSTALL_DIR}"
-        ./bootstrap
-        ./configure --without-libkrb5 --prefix="${INSTALL_DIR}" --exec-prefix="${INSTALL_DIR}" CFLAGS='-fPIC -Wno-cast-align'
-        make
-        make install
-        popd
+else
+    pushd libnfs &> /dev/null
+    GIT_PULL_OUTPUT=$(git pull)
+    if [[ ! "$GIT_PULL_OUTPUT" =~ "Already up to date." ]]; then
+        echo "new commits pulled for libnfs - triggering rebuild"
+        rm -rf local-install
     fi
+    popd &> /dev/null
+fi
+
+if [ ! -f libnfs/local-install/lib/libnfs.a ]; then
+    pushd libnfs &> /dev/null
+    CURDIR="$(pwd)"
+    INSTALL_DIR="${CURDIR}/local-install"
+    mkdir -p "${INSTALL_DIR}"
+    ./bootstrap
+    ./configure --without-libkrb5 --prefix="${INSTALL_DIR}" --exec-prefix="${INSTALL_DIR}" CFLAGS='-fPIC -Wno-cast-align'
+    make
+    make install
+    popd &> /dev/null
 fi
 
 if [ ! -d go-nfs ]; then
     git clone https://github.com/willscott/go-nfs.git go-nfs
-    if [ ! -f go-nfs/osnfs ]; then
-        pushd go-nfs
-        go build ./example/osnfs
-        popd
+else
+    pushd libnfs &> /dev/null
+    GIT_PULL_OUTPUT=$(git pull)
+    if [[ ! "$GIT_PULL_OUTPUT" =~ "Already up to date." ]]; then
+        echo "new commits pulled for go-nfs - triggering rebuild"
+        rm -f osnfs
     fi
+    popd &> /dev/null
+fi
+
+if [ ! -f go-nfs/osnfs ]; then
+    pushd go-nfs &> /dev/null
+    go build ./example/osnfs
+    popd &> /dev/null
 fi

@@ -2,6 +2,7 @@
 
 use napi::{JsArrayBuffer, JsDataView, JsString, JsTypedArray, NapiRaw, bindgen_prelude::*};
 use napi_derive::napi;
+use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 use send_wrapper::SendWrapper;
 use std::{path::Path, sync::{Arc, RwLock, RwLockWriteGuard}};
@@ -502,7 +503,7 @@ impl JsNfsDirectoryHandle {
     let path = format_file_path(&self.handle.path, &name);
     let nfs = &self.handle.nfs;
     let mut my_nfs = nfs.as_ref().unwrap().write().unwrap();
-    let _ = my_nfs.create(path.as_str(), nix::fcntl::OFlag::O_SYNC.bits() as u32, (Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IWGRP | Mode::S_IROTH | Mode::S_IWOTH).bits() as u32)?; // XXX: change mode value to 0o664?
+    let _ = my_nfs.create(path.as_str(), (OFlag::O_WRONLY | OFlag::O_SYNC).bits() as u32, (Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IWGRP | Mode::S_IROTH | Mode::S_IWOTH).bits() as u32)?; // XXX: change mode value to 0o664?
     Ok(JsNfsHandle{nfs: self.handle.nfs.clone(), path, kind: KIND_FILE.into(), name}.into())
   }
 
@@ -720,7 +721,7 @@ impl JsNfsFile {
   fn nfs_bytes(&self) -> Result<Vec<u8>> {
     let nfs = &self.handle.nfs;
     let mut my_nfs = nfs.as_ref().unwrap().write().unwrap();
-    let nfs_file = my_nfs.open(self.handle.path.as_str(), nix::fcntl::OFlag::O_SYNC.bits() as u32)?;
+    let nfs_file = my_nfs.open(self.handle.path.as_str(), OFlag::O_RDONLY.bits() as u32)?;
     let nfs_stat = nfs_file.fstat64()?;
     let buffer = &mut vec![0u8; nfs_stat.size as usize];
     let _ = nfs_file.pread_into(nfs_stat.size as u32, 0, buffer)?;
@@ -951,7 +952,7 @@ impl JsNfsWritableFileStream {
   fn nfs_write(&mut self, bytes: &[u8]) -> Result<Undefined> {
     let nfs = &self.handle.nfs;
     let mut my_nfs = nfs.as_ref().unwrap().write().unwrap();
-    let nfs_file = my_nfs.open(self.handle.path.as_str(), nix::fcntl::OFlag::O_SYNC.bits() as u32)?;
+    let nfs_file = my_nfs.open(self.handle.path.as_str(), (OFlag::O_WRONLY | OFlag::O_SYNC).bits() as u32)?;
     let offset = match self.position {
       None => nfs_file.fstat64()?.size,
       Some(pos) => pos as u64
