@@ -1,5 +1,5 @@
 {
-  "name": "@wasmin/nfs-js-node",
+  "name": "@netapplabs/nfs-js-node",
   "version": "0.7.0",
   "description": "nfs js",
   "main": "indax.js",
