@@ -55,7 +55,7 @@
     "build:linux:x64": "napi build --platform --release --target x86_64-unknown-linux-musl --pipe \"prettier -w\"",
     "build:linux:arm64": "napi build --platform --release --target aarch64-unknown-linux-musl --pipe \"prettier -w\"",
     "build:debug": "napi build --platform --pipe \"prettier -w\"",
-    "format": "run-p format:prettier format:rs",
+    "format": "npm run format:prettier && npm run format:rs",
     "format:prettier": "prettier . -w",
     "format:rs": "cargo fmt",
     "lint": "eslint . -c ./.eslintrc.yml",
@@ -71,17 +71,17 @@
     "@types/node": "^22.15.3",
     "@typescript-eslint/eslint-plugin": "^8.31.0",
     "@typescript-eslint/parser": "^8.31.0",
+    "@vercel/nft": "^0.29.2",
     "ava": "^6.2.0",
     "benny": "^3.7.1",
     "chalk": "^5.4.1",
-    "eslint": "^8.17.0",
+    "eslint": "^9.25.1",
     "eslint-config-prettier": "^10.1.2",
-    "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-prettier": "^5.2.6",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.1",
-    "npm-run-all": "^4.1.5",
     "prettier": "^3.5.3",
+    "semver": "^7.7.1",
     "typescript": "^5.8.3"
   },
   "lint-staged": {
@@ -109,6 +109,12 @@
     "trailingComma": "all",
     "singleQuote": true,
     "arrowParens": "always"
+  },
+  "overrides": {
+    "@vercel/nft": "^0.29.2"
+  },
+  "resolutions": {
+    "@vercel/nft": "^0.29.2"
   },
   "packageManager": "yarn@3.2.1"
 }
