@@ -2,7 +2,7 @@
 authors = ["LongYinan <lynweklm@gmail.com>","Tryggvi Larusson <Tryggvi.Larusson@netapp.com>","Fridvin Oddbjornsson <Fridvin.Oddbjornsson@netapp.com>"]
 edition = "2021"
 name = "nfs-js"
-version = "0.2.0"
+version = "0.7.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
