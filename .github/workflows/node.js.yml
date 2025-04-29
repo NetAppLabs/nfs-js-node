@@ -60,7 +60,7 @@ jobs:
     - name: Test
       run: yarn test
     - name: Upload node module
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: nfs-js.${{ matrix.os }}-x64-node${{ matrix.node-version }}.node
         path: nfs-js.*.node
