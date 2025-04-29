@@ -120,7 +120,6 @@ libnfs
 #Added by cargo
 
 /target
-Cargo.lock
 
 *.node
 .pnp.*
