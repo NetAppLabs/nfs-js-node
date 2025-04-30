@@ -217,6 +217,11 @@ impl NFSFile for NFSFile3 {
          })
     }
 
+    fn get_max_read_size(&self) -> u64 {
+        let mount = unsafe { (*self.nfs).mount.read().unwrap() };
+        mount.get_max_read_size() as u64
+    }
+
     fn pread_into(&self, count: u32, offset: u64, buffer: &mut [u8]) -> Result<u32> {
         let mount = unsafe { (*self.nfs).mount.read().unwrap() };
         let res = mount.read(&self.fh, offset, count)?;

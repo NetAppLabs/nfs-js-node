@@ -577,6 +577,7 @@ dependencies = [
  "napi-derive",
  "nfs-rs",
  "nix 0.29.0",
+ "regex",
  "send_wrapper",
  "serde_json",
 ]

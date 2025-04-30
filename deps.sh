@@ -123,7 +123,7 @@ fi
 if [ ! -d go-nfs ]; then
     git clone https://github.com/willscott/go-nfs.git go-nfs
 else
-    pushd libnfs &> /dev/null
+    pushd go-nfs &> /dev/null
     GIT_PULL_OUTPUT=$(git pull)
     if [[ ! "$GIT_PULL_OUTPUT" =~ "Already up to date." ]]; then
         echo "new commits pulled for go-nfs - triggering rebuild"
