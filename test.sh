@@ -24,7 +24,7 @@ mkdir -p ${NFS_TEST_DIR}
 ./setup-nfs-testdir.sh ${NFS_TEST_DIR} $(id -u) $(id -g)
 
 NFS_PORT=20490
-export NFS_URL="nfs://127.0.0.1${NFS_TEST_DIR}?nfsport=$NFS_PORT&mountport=$NFS_PORT&auto-traverse-mounts=0"
+export NFS_URL="nfs://127.0.0.1${NFS_TEST_DIR}?nfsport=$NFS_PORT&mountport=$NFS_PORT&auto-traverse-mounts=0&rsize=2097152"
 
 echo "Test using mocks"
 TEST_USING_MOCKS=1 yarn test-ava

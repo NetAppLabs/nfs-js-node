@@ -19,9 +19,19 @@ use std::io::Error;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use bytes::BufMut;
+use regex::Regex;
 
 use super::{NFS, NFSStat64, NFSDirectory, NFSFile, NFSDirEntry, NFSEntryType, Result, Time};
 use crate::get_parent_path_and_name;
+
+fn get_rsize_from_url(url: &str) -> u32 {
+    let re = Regex::new("[?&]rsize=(?<rsize>[1-9][0-9]*)").unwrap();
+    re.captures(url)
+        .map_or(
+            1048576, // XXX: mimic libnfs default of 1 MiB
+            |caps| u32::from_str_radix(&caps["rsize"], 10).unwrap(),
+        )
+}
 
 #[derive(Debug)]
 struct Mocks {
@@ -32,10 +42,14 @@ struct Mocks {
 #[derive(Debug)]
 pub(super) struct NFS3 {
     mocks: Arc<RwLock<Mocks>>,
+    rsize: u32,
 }
 
 impl NFS3 {
-    pub(super) fn connect(_url: String) -> Box<dyn NFS> {
+    pub(super) fn connect(url: String) -> Box<dyn NFS> {
+        const MAXIMUM_READ_SIZE: u32 = 4194304; // XXX: according to libnfs, 4 MiB is the maximum
+        const MINIMUM_READ_SIZE: u32 = 8192; // XXX: according to libnfs, 8 KiB is the minimum
+        let rsize = get_rsize_from_url(&url).min(MAXIMUM_READ_SIZE).max(MINIMUM_READ_SIZE);
         let mut mocks = Mocks{dirs: BTreeSet::new(), files: BTreeMap::new()};
         let _ = mocks.dirs.insert("/first/".into());
         let _ = mocks.dirs.insert("/quatre/".into());
@@ -43,7 +57,7 @@ impl NFS3 {
         let _ = mocks.files.insert("/annar".into(), "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.".as_bytes().to_vec());
         let _ = mocks.files.insert("/first/comment".into(), Vec::new());
         let _ = mocks.files.insert("/quatre/points".into(), Vec::new());
-        Box::new(NFS3{mocks: Arc::new(RwLock::new(mocks))})
+        Box::new(NFS3{mocks: Arc::new(RwLock::new(mocks)), rsize})
     }
 }
 
@@ -273,6 +287,10 @@ impl NFSFile for NFSFile3 {
         })
     }
 
+    fn get_max_read_size(&self) -> u64 {
+        unsafe { (*self.nfs).rsize as u64 }
+    }
+
     fn pread_into(&self, count: u32, offset: u64, buffer: &mut [u8]) -> Result<u32> {
         let mocks = unsafe { &(*self.nfs).mocks.read().unwrap() };
         let readlen = if let Some(content) = mocks.files.get(&self.path) {
@@ -308,6 +326,38 @@ impl NFSFile for NFSFile3 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn get_rsize_from_url_returns_default() {
+        let res = get_rsize_from_url("");
+        assert_eq!(res, 1048576);
+        let res = get_rsize_from_url("nfs://localhost/remote/rsize=1234");
+        assert_eq!(res, 1048576);
+        let res = get_rsize_from_url("nfs://localhost/remote/export?rsize=");
+        assert_eq!(res, 1048576);
+        let res = get_rsize_from_url("nfs://localhost/remote/export?rsize=&wsize=8192");
+        assert_eq!(res, 1048576);
+        let res = get_rsize_from_url("nfs://localhost/remote/export?wsize=8192&rsize=");
+        assert_eq!(res, 1048576);
+        let res = get_rsize_from_url("nfs://localhost/remote/export?wsize=8192&rsize=&uid=0");
+        assert_eq!(res, 1048576);
+        let res = get_rsize_from_url("nfs://localhost/remote/export?wsize=8192&rsize=0&uid=0");
+        assert_eq!(res, 1048576);
+        let res = get_rsize_from_url("nfs://localhost/remote/export?wsize=8192&rsize=def&uid=0");
+        assert_eq!(res, 1048576);
+    }
+
+    #[test]
+    fn get_rsize_from_url_works() {
+        let res = get_rsize_from_url("nfs://localhost/remote/export?rsize=10240");
+        assert_eq!(res, 10240);
+        let res = get_rsize_from_url("nfs://localhost/remote/export?rsize=20480&wsize=8192");
+        assert_eq!(res, 20480);
+        let res = get_rsize_from_url("nfs://localhost/remote/export?wsize=8192&rsize=30720");
+        assert_eq!(res, 30720);
+        let res = get_rsize_from_url("nfs://localhost/remote/export?wsize=8192&rsize=40960&uid=666");
+        assert_eq!(res, 40960);
+    }
 
     #[test]
     fn mock_implementation_works() {

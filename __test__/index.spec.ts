@@ -21,10 +21,22 @@ import test from 'ava'
 import process from 'node:process';
 import { NfsDirectoryHandle, NfsFileHandle } from '../indax'
 
-const nfsURL = process.env.NFS_URL || 'nfs://127.0.0.1/Users/Shared/nfs/';
+const nfsURL = process.env.NFS_URL || 'nfs://127.0.0.1/Users/Shared/nfs/?rsize=2097152';
 
 function getRootHandle(): NfsDirectoryHandle {
   return new NfsDirectoryHandle(nfsURL);
+}
+
+function getMaxReadSize(): number {
+  const url = new URL(nfsURL);
+  const rsize = url.searchParams.get('rsize');
+  if (rsize) {
+    try {
+      // XXX: according to libnfs, minimum read size is 8 KiB and maximum read size is 4 MiB
+      return Math.min(Math.max(Number.parseInt(rsize, 10), 8192), 4194304);
+    } catch (_e: any) {}
+  }
+  return 1048576; // XXX: libnfs defaults to 1 MiB and other implementations mimic that
 }
 
 test.serial('should have correct properties for directory', async (t) => {
@@ -680,6 +692,39 @@ test.serial('should return stream for file', async (t) => {
   t.is(String.fromCharCode.apply(null, x.value?.valueOf() as any), 'In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count.');
   const y = await reader.read();
   t.true(y.done);
+})
+
+test.serial('should succeed when streaming file larger than max_read_size', async (t) => {
+  const maxReadSize = getMaxReadSize();
+  const rootHandle = await getRootHandle();
+  const fileHandle = await rootHandle.getFileHandle('writable-stream-larger-than-max-read-size', {create: true}) as NfsFileHandle;
+  const writable = await fileHandle.createWritable();
+  // const contents = new Uint8Array(6*1024*1024); // XXX: libnfs defines max read/write size of 4 MiB
+  const contents = new Uint8Array(1.5 * maxReadSize);
+  contents[2] = 210;
+  contents[contents.byteLength-2] = 123;
+  await writable.write(contents);
+  const file = await fileHandle.getFile();
+  t.is(file.size, contents.byteLength);
+  const stream = file.stream();
+  const reader = stream.getReader();
+  const x = await reader.read();
+  x.value = x.value || new Uint8Array();
+  t.false(x.done);
+  t.is(x.value.length, maxReadSize);
+  for (let i = 0; i < x.value.length; i++) {
+    t.is(x.value[i], contents[i]);
+  }
+  const y = await reader.read();
+  y.value = y.value || new Uint8Array();
+  t.false(y.done);
+  t.is(y.value.length, 0.5 * maxReadSize);
+  for (let i = 0; i < y.value.length; i++) {
+    t.is(y.value[i], contents[maxReadSize + i]);
+  }
+  const z = await reader.read();
+  t.true(z.done);
+  await rootHandle.removeEntry(fileHandle.name);
 })
 
 test.serial('should return stream for blob', async (t) => {

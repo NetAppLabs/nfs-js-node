@@ -28,6 +28,7 @@ pub struct Time {
 }
 
 pub trait NFS: Debug + Send + Sync {
+    #[allow(unused)]
     fn access(&self, path: &str, mode: u32) -> Result<()>;
     fn stat64(&self, path: &str) -> Result<NFSStat64>;
     fn lchmod(&self, path: &str, mode: u32) -> Result<()>;
@@ -44,6 +45,7 @@ pub trait NFSDirectory: Debug + Iterator<Item = Result<NFSDirEntry>> {}
 
 pub trait NFSFile: Debug {
     fn fstat64(&self) -> Result<NFSStat64>;
+    fn get_max_read_size(&self) -> u64;
     fn pread_into(&self, count: u32, offset: u64, buffer: &mut [u8]) -> Result<u32>;
     fn pwrite(&self, buffer: &[u8], offset: u64) -> Result<u32>;
 }
@@ -74,6 +76,7 @@ impl From<u32> for NFSEntryType {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct NFSDirEntry {
     pub path: String,
@@ -97,6 +100,7 @@ pub struct NFSDirEntry {
     pub ctime_nsec: u32,
 }
 
+#[allow(unused)]
 #[derive(Debug, Copy, Clone)]
 pub struct NFSStat64 {
   pub dev: u64,
