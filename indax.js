@@ -132,6 +132,9 @@ class NfsFileHandle extends NfsHandle {
     async getFile() {
         return this._js.getFile();
     }
+    async createSyncAccessHandle() {
+        throw new Error("createSyncAccessHandle not implemented");
+    }
     async createWritable(options) {
         return new Promise(async (resolve, reject) => {
             await this._js.createWritable(options)
