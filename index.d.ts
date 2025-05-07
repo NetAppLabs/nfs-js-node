@@ -7,16 +7,16 @@ export interface JsNfsHandlePermissionDescriptor {
   mode: 'read' | 'readwrite'
 }
 export interface JsNfsGetDirectoryOptions {
-  create: boolean
+  create?: boolean
 }
 export interface JsNfsGetFileOptions {
-  create: boolean
+  create?: boolean
 }
 export interface JsNfsRemoveOptions {
-  recursive: boolean
+  recursive?: boolean
 }
 export interface JsNfsCreateWritableOptions {
-  keepExistingData: boolean
+  keepExistingData?: boolean
 }
 export declare class JsNfsDirectoryHandleEntries {
   [Symbol.asyncIterator]: AsyncIterableIterator<[string, JsNfsDirectoryHandle | JsNfsFileHandle]>

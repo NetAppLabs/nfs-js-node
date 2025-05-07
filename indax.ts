@@ -18,10 +18,6 @@
 
 import {
   JsNfsHandlePermissionDescriptor,
-  JsNfsGetDirectoryOptions,
-  JsNfsGetFileOptions,
-  JsNfsRemoveOptions,
-  JsNfsCreateWritableOptions,
   JsNfsHandle,
   JsNfsDirectoryHandle,
   JsNfsFileHandle,
@@ -33,6 +29,8 @@ type NfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor;
 type NfsCreateWritableOptions = FileSystemCreateWritableOptions;
 // @ts-ignore
 type FileSystemWritableFileStream = FileSystemWritableFileStream;
+// @ts-ignore
+type FileSystemSyncAccessHandle = FileSystemSyncAccessHandle;
 
 type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
 
@@ -116,7 +114,7 @@ export class NfsDirectoryHandle extends NfsHandle implements FileSystemDirectory
   }
   async getDirectoryHandle(name: string, options?: FileSystemGetDirectoryOptions): Promise<FileSystemDirectoryHandle> {
     return new Promise(async (resolve, reject) => {
-      await this._js.getDirectoryHandle(name, options as JsNfsGetDirectoryOptions)
+      await this._js.getDirectoryHandle(name, options)
         .then((handle) => resolve(new NfsDirectoryHandle(handle) as FileSystemDirectoryHandle))
         .catch((reason) => {
           let errMsg: string = reason.message;
@@ -133,7 +131,7 @@ export class NfsDirectoryHandle extends NfsHandle implements FileSystemDirectory
   }
   async getFileHandle(name: string, options?: FileSystemGetFileOptions): Promise<FileSystemFileHandle> {
     return new Promise(async (resolve, reject) => {
-      await this._js.getFileHandle(name, options as JsNfsGetFileOptions)
+      await this._js.getFileHandle(name, options)
         .then((handle) => resolve(new NfsFileHandle(handle) as FileSystemFileHandle))
         .catch((reason) => {
           let errMsg: string = reason.message;
@@ -149,7 +147,7 @@ export class NfsDirectoryHandle extends NfsHandle implements FileSystemDirectory
     });
   }
   async removeEntry(name: string, options?: FileSystemRemoveOptions): Promise<void> {
-    return this._js.removeEntry(name, options as JsNfsRemoveOptions);
+    return this._js.removeEntry(name, options);
   }
   async resolve(possibleDescendant: FileSystemHandle): Promise<Array<string> | null> {
     return this._js.resolve((possibleDescendant as any)._jsh || possibleDescendant);
@@ -190,9 +188,12 @@ export class NfsFileHandle extends NfsHandle implements FileSystemFileHandle {
   async getFile(): Promise<File> {
     return this._js.getFile();
   }
+  async createSyncAccessHandle(): Promise<FileSystemSyncAccessHandle> {
+    throw new Error("createSyncAccessHandle not implemented");
+  }
   async createWritable(options?: NfsCreateWritableOptions): Promise<FileSystemWritableFileStream> {
     return new Promise(async (resolve, reject) => {
-      await this._js.createWritable(options as JsNfsCreateWritableOptions)
+      await this._js.createWritable(options)
         .then((stream) => resolve(new NfsWritableFileStream(stream) as FileSystemWritableFileStream))
         .catch((reason) => reject(reason));
     });

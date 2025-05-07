@@ -1,6 +1,6 @@
 {
   "name": "@netapplabs/nfs-js-node",
-  "version": "0.7.0",
+  "version": "0.7.6",
   "description": "nfs js",
   "main": "indax.js",
   "repository": "git@github.com:NetAppLabs/nfs-js-node.git",
@@ -16,23 +16,19 @@
   "files": [
     "indax.ts",
     "index.d.ts",
-    "index.js"
+    "index.js",
+    "*.node",
+    "lib"
   ],
   "napi": {
-    "name": "nfs-js",
+    "name": "nfs-js-node",
     "triples": {
       "defaults": true,
       "additional": [
-        "x86_64-unknown-linux-musl",
-        "aarch64-unknown-linux-gnu",
-        "i686-pc-windows-msvc",
-        "armv7-unknown-linux-gnueabihf",
+        "x86_64-apple-darwin",
         "aarch64-apple-darwin",
-        "aarch64-linux-android",
-        "x86_64-unknown-freebsd",
-        "aarch64-unknown-linux-musl",
-        "aarch64-pc-windows-msvc",
-        "armv7-linux-androideabi"
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu"
       ]
     }
   },
@@ -40,15 +36,14 @@
     "node": ">= 10"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
-    "access": "public"
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
   },
   "scripts": {
     "artifacts": "napi artifacts",
     "bench": "node -r @swc-node/register benchmark/bench.ts",
-    "build": "npm run build-sh && npm run build-tsc",
+    "build": "./build.sh",
     "build-tsc": "npx tsc -p .",
-    "build-sh": "./build.sh",
     "build-napi": "napi build --platform --release --pipe \"prettier -w\"",
     "build:darwin:x64": "napi build --platform --release --target x86_64-apple-darwin --pipe \"prettier -w\"",
     "build:darwin:arm64": "napi build --platform --release --target aarch64-apple-darwin --pipe \"prettier -w\"",
@@ -60,8 +55,10 @@
     "format:rs": "cargo fmt",
     "lint": "eslint . -c ./.eslintrc.yml",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "./test.sh",
+    "test": "npm run test-cargo && npm run test-sh",
     "test-ava": "ava",
+    "test-cargo": "./build.sh test",
+    "test-sh": "./test.sh",
     "version": "napi version"
   },
   "devDependencies": {

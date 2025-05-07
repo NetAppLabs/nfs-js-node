@@ -65,8 +65,8 @@ ava_1.default.serial('should be same entry as self for directory', async (t) => 
 });
 ava_1.default.serial('should not be same entry as others for directory', async (t) => {
     const rootHandle = getRootHandle();
-    const fileHandle = await rootHandle.getFileHandle('annar');
-    const dirHandle = await rootHandle.getDirectoryHandle('first');
+    const fileHandle = await rootHandle.getFileHandle('annar', {});
+    const dirHandle = await rootHandle.getDirectoryHandle('first', {});
     t.false(await fileHandle.isSameEntry(dirHandle));
     t.false(await rootHandle.isSameEntry(dirHandle));
     t.false(await dirHandle.isSameEntry(fileHandle));
@@ -739,7 +739,7 @@ ava_1.default.serial('should return non-locked writable when creating writable a
 ava_1.default.serial('should return error when writing unsupported type', async (t) => {
     const rootHandle = getRootHandle();
     const fileHandle = await rootHandle.getFileHandle('writable-write-unsupported-type', { create: true });
-    const writable = await fileHandle.createWritable();
+    const writable = await fileHandle.createWritable({});
     const err = await t.throwsAsync(writable.write(69));
     t.is(err?.message, 'Writing unsupported type');
     await rootHandle.removeEntry(fileHandle.name);
