@@ -19,7 +19,7 @@
     "index.js"
   ],
   "napi": {
-    "name": "nfs-js",
+    "name": "nfs-js-node",
     "triples": {
       "defaults": true,
       "additional": [
@@ -40,8 +40,8 @@
     "node": ">= 10"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
-    "access": "public"
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
   },
   "scripts": {
     "artifacts": "napi artifacts",
