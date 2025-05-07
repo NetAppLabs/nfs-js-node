@@ -33,6 +33,8 @@ type NfsHandlePermissionDescriptor = JsNfsHandlePermissionDescriptor;
 type NfsCreateWritableOptions = FileSystemCreateWritableOptions;
 // @ts-ignore
 type FileSystemWritableFileStream = FileSystemWritableFileStream;
+// @ts-ignore
+type FileSystemSyncAccessHandle = FileSystemSyncAccessHandle;
 
 type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
 
@@ -179,6 +181,9 @@ export class NfsFileHandle extends NfsHandle implements FileSystemFileHandle {
   }
   async getFile(): Promise<File> {
     return this._js.getFile();
+  }
+  async createSyncAccessHandle(): Promise<FileSystemSyncAccessHandle> {
+    throw new Error("createSyncAccessHandle not implemented");
   }
   async createWritable(options?: NfsCreateWritableOptions): Promise<FileSystemWritableFileStream> {
     return new Promise(async (resolve, reject) => {

@@ -18,6 +18,23 @@
 
 set -e
 
+LOCAL_TARGET_TRIPLE=`rustc --version --verbose | grep ^host | awk -F ' ' '{print $2}'`
+TARGET_TRIPLE="${LOCAL_TARGET_TRIPLE}"
+
+NODE_ARCH=`echo ${TARGET_TRIPLE} | awk -F '-' '{print $1}' | sed 's/aarch64/arm64/g' | sed 's/x86_64/x64/g'`
+NODE_PLATFORM=`echo ${TARGET_TRIPLE} | awk -F '-' '{print $2}'`
+NODE_OS=`echo ${TARGET_TRIPLE} | awk -F '-' '{print $3}'`
+NODE_OS_VARIANT=`echo ${TARGET_TRIPLE} | awk -F '-' '{print $4}'`
+
+LIBNFS_LIB_PATH="./lib/${NODE_OS}/${NODE_ARCH}"
+if [ -n "${NODE_OS_VARIANT}" ]; then
+  LIBNFS_LIB_PATH="./lib/${NODE_OS}/${NODE_ARCH}/${NODE_OS_VARIANT}"
+fi
+
+if [ -d "${LIBNFS_LIB_PATH}" -a -f "${LIBNFS_LIB_PATH}/libnfs.so" ]; then
+  export LD_LIBRARY_PATH="${LIBNFS_LIB_PATH}"
+fi
+
 NFS_TEST_DIR="/tmp/nfs-js-testrun-$RANDOM"
 mkdir -p ${NFS_TEST_DIR}
 
@@ -34,8 +51,8 @@ GO_NFS_PID=$!
 
 function kill_go_nfs() {
     EXITCODE=$?
-	echo "Stopping go-nfs"
-	kill $GO_NFS_PID
+    echo "Stopping go-nfs"
+    kill $GO_NFS_PID
     if [ $EXITCODE -ne 0 ]; then
         cat /tmp/go-nfs/osnfs.log
     fi
