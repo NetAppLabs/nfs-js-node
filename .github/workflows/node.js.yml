@@ -1,34 +1,40 @@
 # This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 
-name: Node.js CI
+name: CI
 
 on:
   push:
-    branches: [ "master", "fridvin*" ]
+    branches: [ "*" ]
   pull_request:
-    branches: [ "master", "fridvin*" ]
+    branches: [ "*" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-
-    runs-on: ${{ matrix.os }}
-    
+    runs-on: ${{ matrix.settings.host }}
     permissions:
       contents: write
       packages: write
-
     strategy:
       matrix:
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-        node-version: [ 18.x ]
-        os: [ macos-latest, ubuntu-latest ]
-
+        settings:
+          - host: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            runtests: true
+          - host: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            runtests: false
+          - host: macos-latest
+            target: aarch64-apple-darwin
+            runtests: true
+          - host: macos-latest
+            target: x86_64-apple-darwin
+            runtests: false
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Setup go
       uses: actions/setup-go@v3
       with:
@@ -50,21 +56,76 @@ jobs:
         ln -sf $HOME/.ssh/nfs-rs $HOME/.ssh/id_rsa
         git clone git@github.com:NetAppLabs/nfs-rs.git
         rm $HOME/.ssh/id_rsa
-    - name: Install non-rust non-node dependencies
-      run: ./deps.sh
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+    - name: linux deps
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get -y install \
+          libc6-dev-amd64-cross libc6-dev-arm64-cross \
+          crossbuild-essential-arm64 crossbuild-essential-amd64 \
+          gcc-aarch64-linux-gnu \
+          binfmt-support binutils binutils-aarch64-linux-gnu
+    - uses: mlugg/setup-zig@v1
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        node-version: ${{ matrix.node-version }}
+        rustflags: ""
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
         cache: 'yarn'
+        registry-url: 'https://npm.pkg.github.com'
+        scope: '@netapplabs'
     - name: Prepare yarn
-      run: yarn install --immutable
+      run: yarn install
     - name: Build
-      run: yarn build
+      run: yarn build --target ${{ matrix.settings.target }}
     - name: Test
+      if: ${{ matrix.settings.runtests }}
       run: yarn test
     - name: Upload node module
       uses: actions/upload-artifact@v4
       with:
-        name: nfs-js.${{ matrix.os }}-x64-node${{ matrix.node-version }}.node
-        path: nfs-js.*.node
+        name: nfs-js-node.${{ matrix.settings.host }}-${{ matrix.settings.target }}
+        path: |
+          nfs-js-node.*.node
+          lib
+  publish:
+    runs-on: ubuntu-22.04
+    if: ${{ github.ref == 'refs/heads/master' }}
+    permissions:
+      contents: write
+      packages: write
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@netapplabs'
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nfs-js-node.*
+          merge-multiple: true
+
+      - name: Setup git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Bump version
+        run: npx standard-version
+
+      - name: Publish Artifacts
+        run: npm publish --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push version bump
+        run: |
+          git push --follow-tags

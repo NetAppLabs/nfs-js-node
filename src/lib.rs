@@ -64,15 +64,15 @@ interface FileSystemHandle {
 }
 
 interface FileSystemGetDirectoryOptions {
-    create: boolean;
+    create?: boolean;
 }
 
 interface FileSystemGetFileOptions {
-    create: boolean;
+    create?: boolean;
 }
 
 interface FileSystemRemoveOptions {
-    recursive: boolean;
+    recursive?: boolean;
 }
 
 interface FileSystemDirectoryHandle extends FileSystemHandle {
@@ -88,7 +88,7 @@ interface FileSystemDirectoryHandle extends FileSystemHandle {
 }
 
 interface FileSystemCreateWritableOptions {
-    keepExistingData: boolean;
+    keepExistingData?: boolean;
 }
 
 interface FileSystemFileHandle extends FileSystemHandle {
@@ -278,7 +278,7 @@ impl JsNfsHandlePermissionDescriptor {
 
 #[napi(object)]
 pub struct JsNfsGetDirectoryOptions {
-  pub create: bool
+  pub create: Option<bool>
 }
 
 impl Default for JsNfsGetDirectoryOptions {
@@ -290,7 +290,7 @@ impl Default for JsNfsGetDirectoryOptions {
 
 #[napi(object)]
 pub struct JsNfsGetFileOptions {
-  pub create: bool
+  pub create: Option<bool>
 }
 
 impl Default for JsNfsGetFileOptions {
@@ -302,7 +302,7 @@ impl Default for JsNfsGetFileOptions {
 
 #[napi(object)]
 pub struct JsNfsRemoveOptions {
-  pub recursive: bool
+  pub recursive: Option<bool>
 }
 
 impl Default for JsNfsRemoveOptions {
@@ -314,7 +314,7 @@ impl Default for JsNfsRemoveOptions {
 
 #[napi(object)]
 pub struct JsNfsCreateWritableOptions {
-  pub keep_existing_data: bool
+  pub keep_existing_data: Option<bool>
 }
 
 impl Default for JsNfsCreateWritableOptions {
@@ -493,7 +493,7 @@ impl JsNfsDirectoryHandle {
         return Ok(entry.into());
       }
     }
-    if !options.unwrap_or_default().create {
+    if !options.unwrap_or_default().create.unwrap_or_default() {
       return Err(Error::new(Status::GenericFailure, format!("Directory {:?} not found", name)));
     }
     let path = format_dir_path(&self.handle.path, &name);
@@ -513,7 +513,7 @@ impl JsNfsDirectoryHandle {
         return Ok(entry.into());
       }
     }
-    if !options.unwrap_or_default().create {
+    if !options.unwrap_or_default().create.unwrap_or_default() {
       return Err(Error::new(Status::GenericFailure, format!("File {:?} not found", name)));
     }
     let path = format_file_path(&self.handle.path, &name);
@@ -552,7 +552,7 @@ impl JsNfsDirectoryHandle {
   pub async fn remove_entry(&self, name: String, #[napi(ts_arg_type="JsNfsRemoveOptions")] options: Option<JsNfsRemoveOptions>) -> Result<()> {
     for entry in self.nfs_entries()? {
       if entry.name == name {
-        return self.nfs_remove(&entry, options.unwrap_or_default().recursive);
+        return self.nfs_remove(&entry, options.unwrap_or_default().recursive.unwrap_or_default());
       }
     }
     Err(Error::new(Status::GenericFailure, format!("Entry {:?} not found", name)))
@@ -657,8 +657,9 @@ impl JsNfsFileHandle {
 
   #[napi]
   pub async fn create_writable(&self, #[napi(ts_arg_type="JsNfsCreateWritableOptions")] options: Option<JsNfsCreateWritableOptions>) -> Result<JsNfsWritableFileStream> {
-    let position = (!options.unwrap_or_default().keep_existing_data).then(|| 0);
-    Ok(JsNfsWritableFileStream{handle: self.handle.clone(), position, locked: false})
+    let keep_existing_data = options.unwrap_or_default().keep_existing_data;
+    let position = (!keep_existing_data.unwrap_or_default()).then(|| 0);
+    Ok(JsNfsWritableFileStream{handle: self.handle.clone(), keep_existing_data, position, locked: false})
   }
 }
 
@@ -808,6 +809,7 @@ impl JsNfsReadableStreamSource {
 #[napi]
 pub struct JsNfsWritableFileStream {
   handle: JsNfsHandle,
+  keep_existing_data: Option<bool>,
   position: Option<i64>,
   #[napi(readonly)]
   pub locked: bool
@@ -969,6 +971,11 @@ impl JsNfsWritableFileStream {
 
   fn try_write_data(&mut self, options: &JsNfsWritableFileStreamWriteOptions) -> Result<Undefined> {
     if let Some(data) = &options.data {
+      if let Some(keep) = self.keep_existing_data.take() {
+        if !keep {
+          _ = self.nfs_truncate(0)?;
+        }
+      }
       return self.nfs_write(data.as_slice());
     }
     Err(Error::new(Status::InvalidArg, format!("Property data of type object or string is required when writing object with type={:?}", WRITE_TYPE_WRITE)))
