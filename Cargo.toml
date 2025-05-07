@@ -30,6 +30,7 @@ napi-build = "2"
 
 [profile.release]
 lto = true
+rpath = true
 
 [patch.crates-io]
 libnfs-sys = { path = "./libnfs-sys" }

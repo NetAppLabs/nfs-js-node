@@ -32,10 +32,10 @@ switch (platform) {
   case 'android':
     switch (arch) {
       case 'arm64':
-        localFileExisted = existsSync(join(__dirname, 'nfs-js.android-arm64.node'))
+        localFileExisted = existsSync(join(__dirname, 'nfs-js-node.android-arm64.node'))
         try {
           if (localFileExisted) {
-            nativeBinding = require('./nfs-js.android-arm64.node')
+            nativeBinding = require('./nfs-js-node.android-arm64.node')
           } else {
             nativeBinding = require('@netapplabs/nfs-js-node-android-arm64')
           }
@@ -44,10 +44,10 @@ switch (platform) {
         }
         break
       case 'arm':
-        localFileExisted = existsSync(join(__dirname, 'nfs-js.android-arm-eabi.node'))
+        localFileExisted = existsSync(join(__dirname, 'nfs-js-node.android-arm-eabi.node'))
         try {
           if (localFileExisted) {
-            nativeBinding = require('./nfs-js.android-arm-eabi.node')
+            nativeBinding = require('./nfs-js-node.android-arm-eabi.node')
           } else {
             nativeBinding = require('@netapplabs/nfs-js-node-android-arm-eabi')
           }
@@ -62,10 +62,10 @@ switch (platform) {
   case 'win32':
     switch (arch) {
       case 'x64':
-        localFileExisted = existsSync(join(__dirname, 'nfs-js.win32-x64-msvc.node'))
+        localFileExisted = existsSync(join(__dirname, 'nfs-js-node.win32-x64-msvc.node'))
         try {
           if (localFileExisted) {
-            nativeBinding = require('./nfs-js.win32-x64-msvc.node')
+            nativeBinding = require('./nfs-js-node.win32-x64-msvc.node')
           } else {
             nativeBinding = require('@netapplabs/nfs-js-node-win32-x64-msvc')
           }
@@ -74,10 +74,10 @@ switch (platform) {
         }
         break
       case 'ia32':
-        localFileExisted = existsSync(join(__dirname, 'nfs-js.win32-ia32-msvc.node'))
+        localFileExisted = existsSync(join(__dirname, 'nfs-js-node.win32-ia32-msvc.node'))
         try {
           if (localFileExisted) {
-            nativeBinding = require('./nfs-js.win32-ia32-msvc.node')
+            nativeBinding = require('./nfs-js-node.win32-ia32-msvc.node')
           } else {
             nativeBinding = require('@netapplabs/nfs-js-node-win32-ia32-msvc')
           }
@@ -86,10 +86,10 @@ switch (platform) {
         }
         break
       case 'arm64':
-        localFileExisted = existsSync(join(__dirname, 'nfs-js.win32-arm64-msvc.node'))
+        localFileExisted = existsSync(join(__dirname, 'nfs-js-node.win32-arm64-msvc.node'))
         try {
           if (localFileExisted) {
-            nativeBinding = require('./nfs-js.win32-arm64-msvc.node')
+            nativeBinding = require('./nfs-js-node.win32-arm64-msvc.node')
           } else {
             nativeBinding = require('@netapplabs/nfs-js-node-win32-arm64-msvc')
           }
@@ -102,10 +102,10 @@ switch (platform) {
     }
     break
   case 'darwin':
-    localFileExisted = existsSync(join(__dirname, 'nfs-js.darwin-universal.node'))
+    localFileExisted = existsSync(join(__dirname, 'nfs-js-node.darwin-universal.node'))
     try {
       if (localFileExisted) {
-        nativeBinding = require('./nfs-js.darwin-universal.node')
+        nativeBinding = require('./nfs-js-node.darwin-universal.node')
       } else {
         nativeBinding = require('@netapplabs/nfs-js-node-darwin-universal')
       }
@@ -113,10 +113,10 @@ switch (platform) {
     } catch {}
     switch (arch) {
       case 'x64':
-        localFileExisted = existsSync(join(__dirname, 'nfs-js.darwin-x64.node'))
+        localFileExisted = existsSync(join(__dirname, 'nfs-js-node.darwin-x64.node'))
         try {
           if (localFileExisted) {
-            nativeBinding = require('./nfs-js.darwin-x64.node')
+            nativeBinding = require('./nfs-js-node.darwin-x64.node')
           } else {
             nativeBinding = require('@netapplabs/nfs-js-node-darwin-x64')
           }
@@ -125,10 +125,10 @@ switch (platform) {
         }
         break
       case 'arm64':
-        localFileExisted = existsSync(join(__dirname, 'nfs-js.darwin-arm64.node'))
+        localFileExisted = existsSync(join(__dirname, 'nfs-js-node.darwin-arm64.node'))
         try {
           if (localFileExisted) {
-            nativeBinding = require('./nfs-js.darwin-arm64.node')
+            nativeBinding = require('./nfs-js-node.darwin-arm64.node')
           } else {
             nativeBinding = require('@netapplabs/nfs-js-node-darwin-arm64')
           }
@@ -144,10 +144,10 @@ switch (platform) {
     if (arch !== 'x64') {
       throw new Error(`Unsupported architecture on FreeBSD: ${arch}`)
     }
-    localFileExisted = existsSync(join(__dirname, 'nfs-js.freebsd-x64.node'))
+    localFileExisted = existsSync(join(__dirname, 'nfs-js-node.freebsd-x64.node'))
     try {
       if (localFileExisted) {
-        nativeBinding = require('./nfs-js.freebsd-x64.node')
+        nativeBinding = require('./nfs-js-node.freebsd-x64.node')
       } else {
         nativeBinding = require('@netapplabs/nfs-js-node-freebsd-x64')
       }
@@ -159,10 +159,10 @@ switch (platform) {
     switch (arch) {
       case 'x64':
         if (isMusl()) {
-          localFileExisted = existsSync(join(__dirname, 'nfs-js.linux-x64-musl.node'))
+          localFileExisted = existsSync(join(__dirname, 'nfs-js-node.linux-x64-musl.node'))
           try {
             if (localFileExisted) {
-              nativeBinding = require('./nfs-js.linux-x64-musl.node')
+              nativeBinding = require('./nfs-js-node.linux-x64-musl.node')
             } else {
               nativeBinding = require('@netapplabs/nfs-js-node-linux-x64-musl')
             }
@@ -170,10 +170,10 @@ switch (platform) {
             loadError = e
           }
         } else {
-          localFileExisted = existsSync(join(__dirname, 'nfs-js.linux-x64-gnu.node'))
+          localFileExisted = existsSync(join(__dirname, 'nfs-js-node.linux-x64-gnu.node'))
           try {
             if (localFileExisted) {
-              nativeBinding = require('./nfs-js.linux-x64-gnu.node')
+              nativeBinding = require('./nfs-js-node.linux-x64-gnu.node')
             } else {
               nativeBinding = require('@netapplabs/nfs-js-node-linux-x64-gnu')
             }
@@ -184,10 +184,10 @@ switch (platform) {
         break
       case 'arm64':
         if (isMusl()) {
-          localFileExisted = existsSync(join(__dirname, 'nfs-js.linux-arm64-musl.node'))
+          localFileExisted = existsSync(join(__dirname, 'nfs-js-node.linux-arm64-musl.node'))
           try {
             if (localFileExisted) {
-              nativeBinding = require('./nfs-js.linux-arm64-musl.node')
+              nativeBinding = require('./nfs-js-node.linux-arm64-musl.node')
             } else {
               nativeBinding = require('@netapplabs/nfs-js-node-linux-arm64-musl')
             }
@@ -195,10 +195,10 @@ switch (platform) {
             loadError = e
           }
         } else {
-          localFileExisted = existsSync(join(__dirname, 'nfs-js.linux-arm64-gnu.node'))
+          localFileExisted = existsSync(join(__dirname, 'nfs-js-node.linux-arm64-gnu.node'))
           try {
             if (localFileExisted) {
-              nativeBinding = require('./nfs-js.linux-arm64-gnu.node')
+              nativeBinding = require('./nfs-js-node.linux-arm64-gnu.node')
             } else {
               nativeBinding = require('@netapplabs/nfs-js-node-linux-arm64-gnu')
             }
@@ -209,10 +209,10 @@ switch (platform) {
         break
       case 'arm':
         if (isMusl()) {
-          localFileExisted = existsSync(join(__dirname, 'nfs-js.linux-arm-musleabihf.node'))
+          localFileExisted = existsSync(join(__dirname, 'nfs-js-node.linux-arm-musleabihf.node'))
           try {
             if (localFileExisted) {
-              nativeBinding = require('./nfs-js.linux-arm-musleabihf.node')
+              nativeBinding = require('./nfs-js-node.linux-arm-musleabihf.node')
             } else {
               nativeBinding = require('@netapplabs/nfs-js-node-linux-arm-musleabihf')
             }
@@ -220,10 +220,10 @@ switch (platform) {
             loadError = e
           }
         } else {
-          localFileExisted = existsSync(join(__dirname, 'nfs-js.linux-arm-gnueabihf.node'))
+          localFileExisted = existsSync(join(__dirname, 'nfs-js-node.linux-arm-gnueabihf.node'))
           try {
             if (localFileExisted) {
-              nativeBinding = require('./nfs-js.linux-arm-gnueabihf.node')
+              nativeBinding = require('./nfs-js-node.linux-arm-gnueabihf.node')
             } else {
               nativeBinding = require('@netapplabs/nfs-js-node-linux-arm-gnueabihf')
             }
@@ -234,10 +234,10 @@ switch (platform) {
         break
       case 'riscv64':
         if (isMusl()) {
-          localFileExisted = existsSync(join(__dirname, 'nfs-js.linux-riscv64-musl.node'))
+          localFileExisted = existsSync(join(__dirname, 'nfs-js-node.linux-riscv64-musl.node'))
           try {
             if (localFileExisted) {
-              nativeBinding = require('./nfs-js.linux-riscv64-musl.node')
+              nativeBinding = require('./nfs-js-node.linux-riscv64-musl.node')
             } else {
               nativeBinding = require('@netapplabs/nfs-js-node-linux-riscv64-musl')
             }
@@ -245,10 +245,10 @@ switch (platform) {
             loadError = e
           }
         } else {
-          localFileExisted = existsSync(join(__dirname, 'nfs-js.linux-riscv64-gnu.node'))
+          localFileExisted = existsSync(join(__dirname, 'nfs-js-node.linux-riscv64-gnu.node'))
           try {
             if (localFileExisted) {
-              nativeBinding = require('./nfs-js.linux-riscv64-gnu.node')
+              nativeBinding = require('./nfs-js-node.linux-riscv64-gnu.node')
             } else {
               nativeBinding = require('@netapplabs/nfs-js-node-linux-riscv64-gnu')
             }
@@ -258,10 +258,10 @@ switch (platform) {
         }
         break
       case 's390x':
-        localFileExisted = existsSync(join(__dirname, 'nfs-js.linux-s390x-gnu.node'))
+        localFileExisted = existsSync(join(__dirname, 'nfs-js-node.linux-s390x-gnu.node'))
         try {
           if (localFileExisted) {
-            nativeBinding = require('./nfs-js.linux-s390x-gnu.node')
+            nativeBinding = require('./nfs-js-node.linux-s390x-gnu.node')
           } else {
             nativeBinding = require('@netapplabs/nfs-js-node-linux-s390x-gnu')
           }
