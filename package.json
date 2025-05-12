@@ -1,6 +1,6 @@
 {
   "name": "@netapplabs/nfs-js-node",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "nfs js",
   "main": "indax.js",
   "repository": "git@github.com:NetAppLabs/nfs-js-node.git",
