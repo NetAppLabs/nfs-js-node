@@ -1,47 +1,56 @@
-# `@napi-rs/package-template`
+# `@netapplabs/nfs-js-node`
 
-![https://github.com/napi-rs/package-template/actions](https://github.com/napi-rs/package-template/workflows/CI/badge.svg)
+![https://github.com/NetAppLabs/nfs-js-node/actions](https://github.com/NetAppLabs/nfs-js-node/actions/workflows/node.js.yml/badge.svg)
 
-> Template project for writing node package with napi-rs.
+> NFS filesystem implementation for JavaScript/TypeScript.
+
+
+## Install this package
+
+Add an .npmrc file to your home directory or readable location
+
+```
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+@netapplabs:registry=https://npm.pkg.github.com/
+```
+
+```
+yarn add @netapplabs/nfs-js-node
+```
 
 # Usage
 
-1. Click **Use this template**.
-2. **Clone** your project.
-3. Run `yarn install` to install dependencies.
-4. Run `npx napi rename -n [name]` command under the project folder to rename your package.
-
-## Install this test package
+### Example JavasScript usage using NFSv3:
 
 ```
-yarn add @napi-rs/package-template
+import { NfsDirectoryHandle, NfsFileHandle } from '@netapplabs/nfs-js-node'
+
+const nfsUrl="nfs://127.0.0.1/Users/Shared/nfs/?rsize=2097152";
+const rootDir = new NfsDirectoryHandle(nfsUrl);
+const subPath = "sub-dir";
+const subDir = await rootDir.getDirectoryHandle(subPath);
+const subFileHandle = await subDir.getFileHandle("sub-file")
+const subFile = await subFileHandle.getFile();
+const textContents = await subFile.text();
+console.log("textContents: ", textContents);
 ```
 
 ## Support matrix
 
 ### Operating Systems
 
-|                  | node14 | node16 | node18 |
+|                  | node18 | node20 | node22 |
 | ---------------- | ------ | ------ | ------ |
-| Windows x64      | ✓      | ✓      | ✓      |
-| Windows x32      | ✓      | ✓      | ✓      |
-| Windows arm64    | ✓      | ✓      | ✓      |
 | macOS x64        | ✓      | ✓      | ✓      |
 | macOS arm64      | ✓      | ✓      | ✓      |
 | Linux x64 gnu    | ✓      | ✓      | ✓      |
-| Linux x64 musl   | ✓      | ✓      | ✓      |
-| Linux arm gnu    | ✓      | ✓      | ✓      |
 | Linux arm64 gnu  | ✓      | ✓      | ✓      |
-| Linux arm64 musl | ✓      | ✓      | ✓      |
-| Android arm64    | ✓      | ✓      | ✓      |
-| Android armv7    | ✓      | ✓      | ✓      |
-| FreeBSD x64      | ✓      | ✓      | ✓      |
 
 ## Ability
 
 ### Build
 
-After `yarn build/npm run build` command, you can see `package-template.[darwin|win32|linux].node` file in project root. This is the native addon built from [lib.rs](./src/lib.rs).
+After `yarn build/npm run build` command, you can see `nfs-js-node.[darwin|linux].node` file in project root. This is the native addon built from [lib.rs](./src/lib.rs).
 
 ### Test
 
@@ -49,24 +58,14 @@ With [ava](https://github.com/avajs/ava), run `yarn test/npm run test` to testin
 
 ### CI
 
-With GitHub actions, every commits and pull request will be built and tested automatically in [`node@14`, `node@16`, `@node18`] x [`macOS`, `Linux`, `Windows`] matrix. You will never be afraid of the native addon broken in these platforms.
-
-### Release
-
-Release native package is very difficult in old days. Native packages may ask developers who use its to install `build toolchain` like `gcc/llvm` , `node-gyp` or something more.
-
-With `GitHub actions`, we can easily prebuild `binary` for major platforms. And with `N-API`, we should never afraid of **ABI Compatible**.
-
-The other problem is how to deliver prebuild `binary` to users. Download it in `postinstall` script is a common way which most packages do it right now. The problem of this solution is it introduced many other packages to download binary which has not been used by `runtime codes`. The other problem is some user may not easily download the binary from `GitHub/CDN` if they are behind private network (But in most case, they have a private NPM mirror).
-
-In this package we choose a better way to solve this problem. We release different `npm packages` for different platform. And add it to `optionalDependencies` before release the `Major` package to npm.
-
-`NPM` will choose which native package should download from `registry` automatically. You can see [npm](./npm) dir for details. And you can also run `yarn add @napi-rs/package-template` to see how it works.
+With GitHub actions, every commits and pull request will be built and tested automatically.
 
 ## Develop requirements
 
 - Install latest `Rust`
-- Install `Node.js@10+` which fully supported `Node-API`
+  - Install via e.g. `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+- Install `Node.js@20+` which fully supported `Node-API`
+- C compiler (gcc/clang)
 - Install `yarn@1.x`
 
 ## Test in local
@@ -80,11 +79,10 @@ And you will see:
 ```bash
 $ ava --verbose
 
-  ✔ sync function from native code
-  ✔ sleep function from native code (201ms)
+  ✔ test ...
   ─
 
-  2 tests passed
+  x tests passed
 ✨  Done in 1.12s.
 ```
 
@@ -103,3 +101,13 @@ git push
 ```
 
 GitHub actions will do the rest job for you.
+
+## License
+
+[Apache-2.0](LICENSE)
+
+Disclaimer: _This is not an officially supported NetApp product._
+
+## Contributing
+
+See [Contributing.md](./CONTRIBUTING.md)
