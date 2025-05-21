@@ -339,7 +339,8 @@ pub struct JsNfsHandle {
 impl JsNfsHandle {
 
   pub fn open(url: String) -> Self {
-    Self{nfs: Some(Arc::new(RwLock::new(nfs::connect(url)))), path: DIR_ROOT.into(), kind: KIND_DIRECTORY.into(), name: DIR_ROOT.into()}
+    let my_nfs = nfs::connect(url).unwrap_or_else(|e| panic!("error opening connection to NFS server: {:?}", e));
+    Self{nfs: Some(Arc::new(RwLock::new(my_nfs))), path: DIR_ROOT.into(), kind: KIND_DIRECTORY.into(), name: DIR_ROOT.into()}
   }
 
   fn is_same(&self, other: &JsNfsHandle) -> bool {
@@ -652,7 +653,8 @@ impl JsNfsFileHandle {
     let nfs = &self.handle.nfs;
     let my_nfs = nfs.as_ref().unwrap().write().unwrap();
     let nfs_stat = my_nfs.stat64(self.handle.path.as_str())?;
-    Ok(JsNfsFile{handle: self.handle.clone(), size: nfs_stat.size as i64, type_, last_modified: (nfs_stat.mtime * 1000) as i64, name: self.name.clone()})
+    let last_modified = (nfs_stat.mtime as i64).checked_mul(1000).unwrap_or(nfs_stat.mtime as i64);
+    Ok(JsNfsFile{handle: self.handle.clone(), size: nfs_stat.size as i64, type_, last_modified, name: self.name.clone()})
   }
 
   #[napi]

@@ -1160,6 +1160,18 @@ test.serial('should succeed when seeking and writing string object via write', a
   await rootHandle.removeEntry(fileHandle.name);
 })
 
+test.serial('should succeed when seeking beyond file size and writing string via write', async (t) => {
+  const rootHandle = getRootHandle();
+  const fileHandle = await rootHandle.getFileHandle('writable-seek-and-write-string-via-write', {create: true}) as NfsFileHandle;
+  const writable = await fileHandle.createWritable();
+  await t.notThrowsAsync(writable.write({type: 'write', position: 4, data: 'abc'}));
+  const file = await fileHandle.getFile();
+  t.is(file.size, 7);
+  const text = await file.text();
+  t.is(text, '\0\0\0\0abc');
+  await rootHandle.removeEntry(fileHandle.name);
+})
+
 test.serial('should succeed when truncating size', async (t) => {
   const rootHandle = getRootHandle();
   const fileHandle = await rootHandle.getFileHandle('writable-truncate', {create: true}) as NfsFileHandle;

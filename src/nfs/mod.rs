@@ -122,11 +122,11 @@ pub struct NFSStat64 {
   pub ctime_nsec: u64,
 }
 
-pub(crate) fn connect(url: String) -> Box<dyn NFS> {
+pub(crate) fn connect(url: String) -> Result<Box<dyn NFS>> {
     if std::env::var("TEST_USING_MOCKS").is_ok() {
-        mock::NFS3::connect(url)
+        Ok(mock::NFS3::connect(url))
     } else if std::env::var("TEST_USING_PURE_RUST").is_ok() {
-        nfs_rs::NFS3::connect(url)
+        Ok(nfs_rs::NFS3::connect(url))
     } else {
         libnfs::NFS3::connect(url)
     }

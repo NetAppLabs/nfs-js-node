@@ -28,6 +28,7 @@ if [ -z $NFS_GID ]; then
     NFS_GID=nogroup
 fi
 
+rm -rf ${NFS_TEST_DIR}/*
 mkdir -p ${NFS_TEST_DIR}/first ${NFS_TEST_DIR}/quatre
 echo -n "In order to make sure that this file is exactly 123 bytes in size, I have written this text while watching its chars count." > ${NFS_TEST_DIR}/annar
 touch ${NFS_TEST_DIR}/3 ${NFS_TEST_DIR}/first/comment ${NFS_TEST_DIR}/quatre/points
