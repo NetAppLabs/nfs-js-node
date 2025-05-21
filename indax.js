@@ -81,8 +81,14 @@ class NfsDirectoryHandle extends NfsHandle {
             await this._js.getDirectoryHandle(name, options)
                 .then((handle) => resolve(new NfsDirectoryHandle(handle)))
                 .catch((reason) => {
-                if (reason.message == 'The path supplied exists, but was not an entry of requested type.') {
-                    reason.name = 'TypeMismatchError';
+                let errMsg = reason.message;
+                if (errMsg !== undefined) {
+                    if (errMsg == 'The path supplied exists, but was not an entry of requested type.') {
+                        reason.name = 'TypeMismatchError';
+                    }
+                    else if (errMsg.indexOf('not found') != -1) {
+                        reason.name = 'NotFoundError';
+                    }
                 }
                 reject(reason);
             });
@@ -93,8 +99,14 @@ class NfsDirectoryHandle extends NfsHandle {
             await this._js.getFileHandle(name, options)
                 .then((handle) => resolve(new NfsFileHandle(handle)))
                 .catch((reason) => {
-                if (reason.message == 'The path supplied exists, but was not an entry of requested type.') {
-                    reason.name = 'TypeMismatchError';
+                let errMsg = reason.message;
+                if (errMsg !== undefined) {
+                    if (errMsg == 'The path supplied exists, but was not an entry of requested type.') {
+                        reason.name = 'TypeMismatchError';
+                    }
+                    else if (errMsg.indexOf('not found') != -1) {
+                        reason.name = 'NotFoundError';
+                    }
                 }
                 reject(reason);
             });

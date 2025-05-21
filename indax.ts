@@ -119,8 +119,13 @@ export class NfsDirectoryHandle extends NfsHandle implements FileSystemDirectory
       await this._js.getDirectoryHandle(name, options as JsNfsGetDirectoryOptions)
         .then((handle) => resolve(new NfsDirectoryHandle(handle) as FileSystemDirectoryHandle))
         .catch((reason) => {
-          if (reason.message == 'The path supplied exists, but was not an entry of requested type.') {
-            reason.name = 'TypeMismatchError';
+          let errMsg: string = reason.message;
+          if (errMsg !== undefined) {
+            if (errMsg == 'The path supplied exists, but was not an entry of requested type.') {
+              reason.name = 'TypeMismatchError';
+            } else if (errMsg.indexOf('not found') != -1) {
+              reason.name = 'NotFoundError';
+            }
           }
           reject(reason);
         });
@@ -131,8 +136,13 @@ export class NfsDirectoryHandle extends NfsHandle implements FileSystemDirectory
       await this._js.getFileHandle(name, options as JsNfsGetFileOptions)
         .then((handle) => resolve(new NfsFileHandle(handle) as FileSystemFileHandle))
         .catch((reason) => {
-          if (reason.message == 'The path supplied exists, but was not an entry of requested type.') {
-            reason.name = 'TypeMismatchError';
+          let errMsg: string = reason.message;
+          if (errMsg !== undefined) {
+            if (errMsg == 'The path supplied exists, but was not an entry of requested type.') {
+              reason.name = 'TypeMismatchError';
+            } else if (errMsg.indexOf('not found') != -1) {
+              reason.name = 'NotFoundError';
+            }
           }
           reject(reason);
         });
