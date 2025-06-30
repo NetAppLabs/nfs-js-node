@@ -29,9 +29,9 @@ pub(super) struct NFS3{
 }
 
 impl NFS3 {
-    pub(super) fn connect(url: String) -> Box<dyn NFS> {
-        let mount = parse_url_and_mount(url.as_str()).unwrap();
-        Box::new(NFS3{mount: Arc::new(RwLock::new(mount))})
+    pub(super) fn connect(url: String) -> Result<Box<dyn NFS>> {
+        let mount = parse_url_and_mount(url.as_str())?;
+        Ok(Box::new(NFS3{mount: Arc::new(RwLock::new(mount))}))
     }
 }
 

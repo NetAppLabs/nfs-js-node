@@ -59,6 +59,7 @@
     "test-ava": "ava",
     "test-cargo": "./build.sh test",
     "test-sh": "./test.sh",
+    "test-sh-4p1": "./test4p1.sh",
     "version": "napi version"
   },
   "devDependencies": {

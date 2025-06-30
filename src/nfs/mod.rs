@@ -126,8 +126,14 @@ pub(crate) fn connect(url: String) -> Result<Box<dyn NFS>> {
     if std::env::var("TEST_USING_MOCKS").is_ok() {
         Ok(mock::NFS3::connect(url))
     } else if std::env::var("TEST_USING_PURE_RUST").is_ok() {
-        Ok(nfs_rs::NFS3::connect(url))
+        nfs_rs::NFS3::connect(url)
     } else {
-        libnfs::NFS3::connect(url)
+        let res = libnfs::NFS3::connect(url.clone());
+        if res.is_ok() {
+            return res;
+        }
+        // XXX: attempt using nfs_rs, since it has support for NFSv4.1
+        nfs_rs::NFS3::connect(url)
+            .map_err(|_err| res.unwrap_err()) // XXX: return original error from libnfs
     }
 }

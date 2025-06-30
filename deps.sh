@@ -30,7 +30,7 @@ if ! command -v git 2>&1 >/dev/null ; then
     fi
 fi
 
-git submodule update --init
+git submodule update --recursive --init
 
 
 if ! command -v cargo 2>&1 >/dev/null ; then
